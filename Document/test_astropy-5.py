@@ -87,3 +87,18 @@ plt.xlabel(u'Time')
 plt.ylabel(u'Sun Elevation/depression angle (Degree)')
 plt.show()
 
+ax = plt.subplot(111, projection="polar")
+
+#size = 1000
+#x = np.linspace(0, 2 * np.pi, size)
+#y = np.sin(6*x) + np.random.normal(0, 0.08, (size))
+#x = toki
+#y = taiyou.az.value
+
+# r=1AU, theta=azimuth, phi=altitude
+#ax.plot(x, y)
+#ax.plot((toki+9*u.hour).datetime,taiyou.az.value, 'r')
+#ax.plot((toki+9*u.hour).datetime,taiyou.alt.value)
+ax.plot(taiyou.az.value,taiyou.alt.value)
+
+plt.show()
