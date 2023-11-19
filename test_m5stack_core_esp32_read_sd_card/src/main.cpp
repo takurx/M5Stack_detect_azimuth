@@ -42,13 +42,29 @@ void setup() {
             M5.Lcd.write(myFile.read());  // Read 1 character every 1 second.
             sleep(1);
             */
+            
             int readData = myFile.read();
             M5.Lcd.write(readData);
             if (readData == '\n') {  // Read 1 line every 1 second.
-                sleep(1);
+                //sleep(1);
                 M5.Lcd.clear();
                 M5.Lcd.setCursor(0, 0);
             }
+            /*
+            int readData = myFile.read();
+            M5.Lcd.write(readData);
+            // struct info_sun_angle.csv
+            // number 0-288, data 2023-11-19, time 15:00:00, sun azimuth, sun elevation
+            // 1st column: number
+            if (readData == ' ') {
+                int number = 
+            }
+            if (readData == '\n') {  // Read 1 line every 1 second.
+                //sleep(1);
+                M5.Lcd.clear();
+                M5.Lcd.setCursor(0, 0);
+            }
+            */
         }
         myFile.close();
     } else {
