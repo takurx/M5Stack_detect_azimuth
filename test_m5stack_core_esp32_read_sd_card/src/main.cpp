@@ -38,8 +38,17 @@ void setup() {
         M5.Lcd.println("/info_sun_angle.csv Content:");
         // Read the data from the file and print it until the reading is complete.
         while (myFile.available()) {
+            /*
             M5.Lcd.write(myFile.read());  // Read 1 character every 1 second.
             sleep(1);
+            */
+            int readData = myFile.read();
+            M5.Lcd.write(readData);
+            if (readData == '\n') {  // Read 1 line every 1 second.
+                sleep(1);
+                M5.Lcd.clear();
+                M5.Lcd.setCursor(0, 0);
+            }
         }
         myFile.close();
     } else {
