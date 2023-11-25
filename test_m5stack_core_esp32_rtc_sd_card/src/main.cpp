@@ -21,6 +21,8 @@ RTC_PCF8563 rtc;
 
 char timeStrbuff[64];
 
+File myFile;
+
 void setup () {
   M5.begin();
   M5.Power.begin();
@@ -65,6 +67,24 @@ void setup () {
   // to be restarted by clearing the STOP bit. Let's do this to ensure
   // the RTC is running.
   rtc.start();
+
+  // read SD card
+  if (!SD.begin()) {  // Initialize the SD card.
+      M5.Lcd.println("Card failed, or not present");  // Print a message if the SD card initialization fails or if the SD card does not exist
+      while (1)
+          ;
+  }
+  M5.Lcd.println("TF card initialized.");
+  if (SD.exists("/info_sun_angle.csv")) {  // Check if the "/info_sun_angle.csv" file exists.
+      M5.Lcd.println("info_sun_angle.csv exists.");
+  } else {
+      M5.Lcd.println("info_sun_angle.csv doesn't exist.");
+  }
+
+  // print line from SD card
+  myFile = SD.open("/info_sun_angle.csv",
+                    FILE_READ);  // Open the file "/info_sun_angle.csv" in read mode.
+
 }
 
 void loop () {
@@ -76,6 +96,7 @@ void loop () {
     sprintf(timeStrbuff, "%d/%02d/%02d %02d:%02d:%02d", now.year(),
             now.month(), now.day(), now.hour(), now.minute(), now.second());
     M5.Lcd.print(timeStrbuff);
+    M5.Lcd.print("\n");
 
     Serial.print(now.year(), DEC);
     Serial.print('/');
@@ -117,6 +138,15 @@ void loop () {
     Serial.println();
 
     Serial.println();
+
+    while (myFile.available()) {        
+        int readData = myFile.read();
+        M5.Lcd.write(readData);
+        if (readData == '\n') {  // Read 1 line
+            break;
+        }
+    }
+
     delay(3000);
 }
 
