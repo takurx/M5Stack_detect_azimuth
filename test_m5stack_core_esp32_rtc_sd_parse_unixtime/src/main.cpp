@@ -170,6 +170,24 @@ void loop () {
             Serial.print(sun_elevation[0]);     Serial.print(" - ");
             Serial.print(sun_azimuth[0]);       Serial.println();
 
+            DateTime dt = DateTime(2023, 11, 25, 21, 35, 00);
+
+            Serial.print(dt.unixtime());
+            Serial.print(',');
+            Serial.print(dt.year(), DEC);
+            Serial.print('/');
+            Serial.print(dt.month(), DEC);
+            Serial.print('/');
+            Serial.print(dt.day(), DEC);
+            Serial.print(' ');
+            Serial.print(dt.hour(), DEC);
+            Serial.print(':');
+            Serial.print(dt.minute(), DEC);
+            Serial.print(':');
+            Serial.print(dt.second(), DEC);
+            Serial.println();
+            //DateTime dt = DateTime(current_day[0], crrent_time[0]);
+
             M5.Lcd.println(number[0], DEC);
             M5.Lcd.println(current_day[0]);
             M5.Lcd.println(current_time[0]);
