@@ -124,6 +124,7 @@ void loop () {
     Serial.println("d");
 
     // calculate a date which is 7 days, 12 hours and 30 seconds into the future
+    /*
     DateTime future (now + TimeSpan(7,12,30,6));
 
     Serial.print(" now + 7d + 12h + 30m + 6s: ");
@@ -139,6 +140,7 @@ void loop () {
     Serial.print(':');
     Serial.print(future.second(), DEC);
     Serial.println();
+    */
 
     //Serial.println();
 
@@ -170,7 +172,42 @@ void loop () {
             Serial.print(sun_elevation[0]);     Serial.print(" - ");
             Serial.print(sun_azimuth[0]);       Serial.println();
 
-            DateTime dt = DateTime(2023, 11, 25, 21, 35, 00);
+            //DateTime dt = DateTime(2023, 11, 25, 21, 35, 00);
+            DateTime dt;
+            
+            //char current_day_test[] = "2023-11-25";
+            //char current_day_test[] = "2023-11-25\n";
+            //CSV_Parser cp2(current_day_test, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
+            //stcurrent_day[0] << "\n";
+            //strcat(current_day[0], "\n");
+
+            strcpy(csv_str, current_day[0]);
+            strcat(csv_str, "\n");
+            //CSV_Parser cp2(current_day[0], /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
+            CSV_Parser cp2(csv_str, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
+            
+            //cp2.print();
+            uint16_t *dt_year = (uint16_t*)cp2[0];
+            uint8_t *dt_month = (uint8_t*)cp2[1];
+            uint8_t *dt_day = (uint8_t*)cp2[2];
+            Serial.println(dt_year[0]);
+            Serial.println(dt_month[0]);
+            Serial.println(dt_day[0]);
+
+            strcpy(csv_str, current_time[0]);
+            strcat(csv_str, "\n");
+            //CSV_Parser cp3(current_time[0], /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
+            CSV_Parser cp3(csv_str, /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
+            
+            //cp3.print();
+            uint8_t *dt_hour = (uint8_t*)cp3[0];
+            uint8_t *dt_minute = (uint8_t*)cp3[1];
+            uint8_t *dt_second = (uint8_t*)cp3[2];
+            Serial.println(dt_hour[0]);
+            Serial.println(dt_minute[0]);
+            Serial.println(dt_second[0]);
+
+            dt = DateTime(dt_year[0], dt_month[0], dt_day[0], dt_hour[0], dt_minute[0], dt_second[0]);
 
             Serial.print(dt.unixtime());
             Serial.print(',');
@@ -199,7 +236,7 @@ void loop () {
         }
     }
 
-    delay(1000);
+    delay(3000);
 }
 
 
