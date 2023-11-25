@@ -66,8 +66,16 @@ void setup() {
                 Serial.print(sun_elevation[0]);     Serial.print(" - ");
                 Serial.print(sun_azimuth[0]);       Serial.println();
 
+                M5.Lcd.println(number[0], DEC);
+                M5.Lcd.println(current_day[0]);
+                M5.Lcd.println(current_time[0]);
+                M5.Lcd.println(sun_elevation[0]);
+                M5.Lcd.println(sun_azimuth[0]);
+
                 i = 0;
                 delay(2000);
+                M5.Lcd.clear();
+                M5.Lcd.setCursor(0, 0);
             }
         }
         myFile.close();

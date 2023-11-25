@@ -52,10 +52,10 @@ void setup() {
   */
 
   int32_t *number =          (int32_t*)cp[0];
-  char    **current_day =         (char**)cp[1];
-  char    **current_time =         (char**)cp[2];
-  float   *sun_elevation =           (float*)cp[3];
-  float   *sun_azimuth =           (float*)cp[4];
+  char    **current_day =    (char**)cp[1];
+  char    **current_time =   (char**)cp[2];
+  float   *sun_elevation =   (float*)cp[3];
+  float   *sun_azimuth =     (float*)cp[4];
   
   Serial.println("CSV_Parser example");
 
@@ -70,10 +70,10 @@ void setup() {
       */
 
       Serial.print(number[i], DEC);          Serial.print(" - ");
-      Serial.print(current_day[i]);             Serial.print(" - ");
-      Serial.print(current_time[i]);             Serial.print(" - ");
-      Serial.print(sun_elevation[i]);              Serial.print(" - ");
-      Serial.print(sun_azimuth[i]);              Serial.println();
+      Serial.print(current_day[i]);          Serial.print(" - ");
+      Serial.print(current_time[i]);         Serial.print(" - ");
+      Serial.print(sun_elevation[i]);        Serial.print(" - ");
+      Serial.print(sun_azimuth[i]);          Serial.println();
   }
 }
 
