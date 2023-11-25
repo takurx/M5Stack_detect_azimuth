@@ -36,7 +36,7 @@ void setup() {
           "2 2023-09-30 15:10:00 -56.017956331817025 17.214479540554834\n"
           "3 2023-09-30 15:15:00 -55.70049406658381 19.366397684034716\n";
 
-   CSV_Parser cp(csv_str, /*format*/ "Lssff", /*has_header*/ false, /*delimiter*/ ' ');
+  CSV_Parser cp(csv_str, /*format*/ "Lssff", /*has_header*/ false, /*delimiter*/ ' ');
 
   cp.print();
 
