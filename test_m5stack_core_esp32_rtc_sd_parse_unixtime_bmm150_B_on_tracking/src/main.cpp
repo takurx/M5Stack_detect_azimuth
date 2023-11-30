@@ -479,24 +479,22 @@ void loop () {
     }
   }
 
-  if(now.unixtime() > dt.unixtime()) {
-    M5.Lcd.println("Working...");
-  //while(1) {
-    if(yaw < target_azimuth) {
-      M5.Lcd.println("Turn Clowckwise");
-      digitalWrite(pin_on_off, HIGH);
-      pin_on_off_state = true;
-      //break;
-    }
-    else {
-      M5.Lcd.println("Stop turning");
-      digitalWrite(pin_on_off, LOW);
-      pin_on_off_state = false;
-    }
+  //if(now.unixtime() > dt.unixtime()) {
+  //M5.Lcd.println("Working...");
+  //M5.Lcd.println("Turn Clowckwise...");
+  if(yaw < target_azimuth + 5 && yaw > target_azimuth - 5) {
+    digitalWrite(pin_on_off, LOW);
+    pin_on_off_state = false;
+    M5.Lcd.println("Stop turning");
   }
   else {
-    M5.Lcd.println("Waiting...");
+    M5.Lcd.println("Turn Clowckwise...");
+    digitalWrite(pin_on_off, HIGH);
+    pin_on_off_state = true;
   }
+  //else {
+  //M5.Lcd.println("Waiting...");
+  //}
   //delay(3000);
 }
 
