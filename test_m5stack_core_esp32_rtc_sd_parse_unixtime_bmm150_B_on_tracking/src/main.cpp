@@ -74,7 +74,7 @@ float temp = 0.0F;
 
 BMM150class bmm150;
 
-uint32_t Now = 0;
+uint32_t currentTime = 0;
 uint32_t lastUpdate = 0, firstUpdate = 0;
 uint32_t lastAzimuthUpdate = 0;
 float deltat = 0.0f, sum = 0.0f;
@@ -174,6 +174,9 @@ void setup () {
 
 void loop () {
   float magnetX1, magnetY1, magnetZ1;
+  DateTime now, dt;
+  float target_azimuth;
+
   // put your main code here, to run repeatedly:
   M5.update();
   M5.IMU.getGyroData(&gyroX, &gyroY, &gyroZ);
@@ -195,9 +198,9 @@ void loop () {
     head_dir -= 2*M_PI;
   head_dir *= RAD_TO_DEG;
 
-  Now = micros();
-  deltat = ((Now - lastUpdate) / 1000000.0f);
-  lastUpdate = Now;
+  currentTime = micros();
+  deltat = ((currentTime - lastUpdate) / 1000000.0f);
+  lastUpdate = currentTime;
 
   MadgwickQuaternionUpdate(accX, accY, accZ, gyroX * DEG_TO_RAD, gyroY * DEG_TO_RAD, gyroZ * DEG_TO_RAD, -magnetX1, magnetY1, -magnetZ1, deltat);
 
@@ -283,11 +286,12 @@ void loop () {
     pin_on_off_state = false;
   }
 
-  deltat = ((Now - lastAzimuthUpdate) / 1000000.0f);
+  deltat = ((currentTime - lastAzimuthUpdate) / 1000000.0f);
   //if(deltat > 3.0)
   if(deltat > 1.0) {
-    lastAzimuthUpdate = Now;
-    DateTime now = rtc.now();
+    lastAzimuthUpdate = currentTime;
+    //DateTime now;
+    now = rtc.now();
 
     M5.Lcd.clear();
     M5.Lcd.setCursor(0, 0);
@@ -364,8 +368,7 @@ void loop () {
     char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
     int i = 0;
 
-    DateTime dt;
-    float   azimuth;
+    //DateTime dt;
 
     while (myFile.available()) {        
       int readData = myFile.read();
@@ -467,24 +470,32 @@ void loop () {
         M5.Lcd.println(current_time[0]);
         M5.Lcd.print("Target: ");
         M5.Lcd.println(sun_azimuth[0]);
+        target_azimuth = sun_azimuth[0];
+        //M5.Lcd.println(target_azimuth);
 
         i = 0;
         break;
       }
     }
+  }
 
-    /*
-    if(now.unixtime() > dt.unixtime())
-    {
-      while(1)
-      {
-        if(yaw > azimuth)
-        {
-          break;
-        }
-      }
+  if(now.unixtime() > dt.unixtime()) {
+    M5.Lcd.println("Working...");
+  //while(1) {
+    if(yaw < target_azimuth) {
+      M5.Lcd.println("Turn Clowckwise");
+      digitalWrite(pin_on_off, HIGH);
+      pin_on_off_state = true;
+      //break;
     }
-    */ 
+    else {
+      M5.Lcd.println("Stop turning");
+      digitalWrite(pin_on_off, LOW);
+      pin_on_off_state = false;
+    }
+  }
+  else {
+    M5.Lcd.println("Waiting...");
   }
   //delay(3000);
 }
