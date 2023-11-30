@@ -26,7 +26,10 @@ https://registry.platformio.org/libraries/adafruit/RTClib/installation
 #include "BMM150class.h"
 #include <utility/quaternionFilters.h>
 
+//#define DISPLAY_AHRS
+
 uint8_t pin_on_off = 5;
+bool pin_on_off_state = false;
 
 RTC_PCF8563 rtc;
 
@@ -73,6 +76,7 @@ BMM150class bmm150;
 
 uint32_t Now = 0;
 uint32_t lastUpdate = 0, firstUpdate = 0;
+uint32_t lastAzimuthUpdate = 0;
 float deltat = 0.0f, sum = 0.0f;
 
 void initGyro() {
@@ -100,6 +104,7 @@ void setup () {
 
   pinMode(pin_on_off, OUTPUT);
   digitalWrite(pin_on_off, LOW);
+  pin_on_off_state = false;
 
   M5.IMU.Init();
   initGyro();
@@ -151,21 +156,20 @@ void setup () {
 
   // read SD card
   if (!SD.begin()) {  // Initialize the SD card.
-      M5.Lcd.println("Card failed, or not present");  // Print a message if the SD card initialization fails or if the SD card does not exist
-      while (1)
-          ;
+    M5.Lcd.println("Card failed, or not present");  // Print a message if the SD card initialization fails or if the SD card does not exist
+    while (1)
+      ;
   }
   M5.Lcd.println("TF card initialized.");
   if (SD.exists("/info_sun_angle.csv")) {  // Check if the "/info_sun_angle.csv" file exists.
-      M5.Lcd.println("info_sun_angle.csv exists.");
-  } else {
-      M5.Lcd.println("info_sun_angle.csv doesn't exist.");
+    M5.Lcd.println("info_sun_angle.csv exists.");
+  } 
+  else {
+    M5.Lcd.println("info_sun_angle.csv doesn't exist.");
   }
 
   // print line from SD card
-  myFile = SD.open("/info_sun_angle.csv",
-                    FILE_READ);  // Open the file "/info_sun_angle.csv" in read mode.
-
+  myFile = SD.open("/info_sun_angle.csv", FILE_READ);  // Open the file "/info_sun_angle.csv" in read mode.
 }
 
 void loop () {
@@ -195,9 +199,7 @@ void loop () {
   deltat = ((Now - lastUpdate) / 1000000.0f);
   lastUpdate = Now;
 
-  MadgwickQuaternionUpdate(accX, accY, accZ, gyroX * DEG_TO_RAD,
-                           gyroY * DEG_TO_RAD, gyroZ * DEG_TO_RAD,
-                           -magnetX1, magnetY1, -magnetZ1, deltat);
+  MadgwickQuaternionUpdate(accX, accY, accZ, gyroX * DEG_TO_RAD, gyroY * DEG_TO_RAD, gyroZ * DEG_TO_RAD, -magnetX1, magnetY1, -magnetZ1, deltat);
 
 #ifdef DISPLAY_RAW
   M5.Lcd.setCursor(0, 20);
@@ -238,17 +240,18 @@ void loop () {
   // - http://www.ngdc.noaa.gov/geomag-web/#declination
   //  yaw -= 8.5;
 #ifdef DISPLAY_AHRS
-  M5.Lcd.setCursor(0, 100);
+  M5.Lcd.clear();
+  M5.Lcd.setCursor(0, 0);
+  //M5.Lcd.setCursor(0, 100);
   M5.Lcd.printf("  yaw: % 5.2f    pitch: % 5.2f    roll: % 5.2f   \r\n", (yaw), (pitch), (roll));
 #endif
 
-  M5.Lcd.clear();
-  M5.Lcd.setCursor(0, 0);
+  //M5.Lcd.clear();
+  //M5.Lcd.setCursor(0, 0);
   //M5.Lcd.setCursor(20, 220);
-  M5.Lcd.printf("BTN_A:CAL ");
+  //M5.Lcd.printf("BTN_A:CAL ");
 
-  if(M5.BtnA.wasPressed())
-  {
+  if(M5.BtnA.wasPressed()) {
     M5.Lcd.fillScreen(BLACK);
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextSize(1);
@@ -272,38 +275,55 @@ void loop () {
   if (M5.BtnB.isPressed()) {
     M5.Lcd.print("Button B is pressed, pin 5 is HIGH");
     digitalWrite(pin_on_off, HIGH);
+    pin_on_off_state = true;
   }
   if (M5.BtnC.isPressed()) {
     M5.Lcd.print("Button C is pressed, pin 5 is LOW");
     digitalWrite(pin_on_off, LOW);
+    pin_on_off_state = false;
   }
 
+  deltat = ((Now - lastAzimuthUpdate) / 1000000.0f);
   //if(deltat > 3.0)
-  if(deltat > 1.0)
-  {
+  if(deltat > 1.0) {
+    lastAzimuthUpdate = Now;
     DateTime now = rtc.now();
 
-    //M5.Lcd.clear();
-    //M5.Lcd.setCursor(0, 0);
-    M5.Lcd.print("Hello World\n");
+    M5.Lcd.clear();
+    M5.Lcd.setCursor(0, 0);
+    //M5.Lcd.print("Hello World\n");
+    if (pin_on_off_state) {
+      M5.Lcd.print("pin 5 is HIGH\n");
+    }
+    else {
+      M5.Lcd.print("pin 5 is LOW\n");
+    }
     
-    M5.Lcd.printf("  yaw: % 5.2f    pitch: % 5.2f    roll: % 5.2f   \r\n", (yaw), (pitch), (roll));
+    //M5.Lcd.printf("yaw: % 5.2f, pitch: % 5.2f, roll: % 5.2f\n", (yaw), (pitch), (roll));
+    M5.Lcd.printf("yaw: % 5.2f\n", (yaw));
+    M5.Lcd.printf("pitch: % 5.2f\n", (pitch));
+    M5.Lcd.printf("roll: % 5.2f\n", (roll));
     M5.Lcd.printf("\n");
     
     sprintf(timeStrbuff, "%d/%02d/%02d %02d:%02d:%02d", now.year(),
             now.month(), now.day(), now.hour(), now.minute(), now.second());
+    
     M5.Lcd.print(timeStrbuff);
     M5.Lcd.print("\n");
+    M5.Lcd.printf("%d\n", now.unixtime());
 
+    /*
     Serial.print(now.year(), DEC);
     Serial.print('/');
     Serial.print(now.month(), DEC);
     Serial.print('/');
     Serial.print(now.day(), DEC);
     Serial.print(" ");
+    */
     //Serial.print(" (");
     //Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
     //Serial.print(") ");
+    /*
     Serial.print(now.hour(), DEC);
     Serial.print(':');
     Serial.print(now.minute(), DEC);
@@ -316,6 +336,7 @@ void loop () {
     Serial.print("s = ");
     Serial.print(now.unixtime() / 86400L);
     Serial.println("d");
+    */
 
     // calculate a date which is 7 days, 12 hours and 30 seconds into the future
     /*
@@ -343,91 +364,100 @@ void loop () {
     int i = 0;
 
     while (myFile.available()) {        
-        int readData = myFile.read();
-        csv_str[i] = readData;
-        i++;
-        M5.Lcd.write(readData);
-        if (readData == '\n') {  // Read 1 line
-            CSV_Parser cp(csv_str, /*format*/ "Lssff", /*has_header*/ false, /*delimiter*/ ' ');
+      int readData = myFile.read();
+      csv_str[i] = readData;
+      i++;
+      //M5.Lcd.write(readData);
+      if (readData == '\n') {  // Read 1 line
+        CSV_Parser cp(csv_str, /*format*/ "Lssff", /*has_header*/ false, /*delimiter*/ ' ');
 
-            //cp.print();
-            //M5.Lcd.clear();
-            //M5.Lcd.setCursor(0, 0);
+        //cp.print();
+        //M5.Lcd.clear();
+        //M5.Lcd.setCursor(0, 0);
 
-            int32_t *number =          (int32_t*)cp[0];
-            char    **current_day =    (char**)cp[1];
-            char    **current_time =   (char**)cp[2];
-            float   *sun_elevation =   (float*)cp[3];
-            float   *sun_azimuth =     (float*)cp[4];
+        int32_t *number =          (int32_t*)cp[0];
+        char    **current_day =    (char**)cp[1];
+        char    **current_time =   (char**)cp[2];
+        float   *sun_elevation =   (float*)cp[3];
+        float   *sun_azimuth =     (float*)cp[4];
             
-            Serial.print(number[0], DEC);       Serial.print(" - ");
-            Serial.print(current_day[0]);       Serial.print(" - ");
-            Serial.print(current_time[0]);      Serial.print(" - ");
-            Serial.print(sun_elevation[0]);     Serial.print(" - ");
-            Serial.print(sun_azimuth[0]);       Serial.println();
+        /*
+        Serial.print(number[0], DEC);       Serial.print(" - ");
+        Serial.print(current_day[0]);       Serial.print(" - ");
+        Serial.print(current_time[0]);      Serial.print(" - ");
+        Serial.print(sun_elevation[0]);     Serial.print(" - ");
+        Serial.print(sun_azimuth[0]);       Serial.println();
+        */
 
-            //DateTime dt = DateTime(2023, 11, 25, 21, 35, 00);
-            DateTime dt;
+        //DateTime dt = DateTime(2023, 11, 25, 21, 35, 00);
+        DateTime dt;
             
-            //char current_day_test[] = "2023-11-25";
-            //char current_day_test[] = "2023-11-25\n";
-            //CSV_Parser cp2(current_day_test, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
-            //stcurrent_day[0] << "\n";
-            //strcat(current_day[0], "\n");
+        //char current_day_test[] = "2023-11-25";
+        //char current_day_test[] = "2023-11-25\n";
+        //CSV_Parser cp2(current_day_test, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
+        //stcurrent_day[0] << "\n";
+        //strcat(current_day[0], "\n");
 
-            strcpy(csv_str, current_day[0]);
-            strcat(csv_str, "\n");
-            //CSV_Parser cp2(current_day[0], /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
-            CSV_Parser cp2(csv_str, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
-            
-            //cp2.print();
-            uint16_t *dt_year = (uint16_t*)cp2[0];
-            uint8_t *dt_month = (uint8_t*)cp2[1];
-            uint8_t *dt_day = (uint8_t*)cp2[2];
-            Serial.println(dt_year[0]);
-            Serial.println(dt_month[0]);
-            Serial.println(dt_day[0]);
+        strcpy(csv_str, current_day[0]);
+        strcat(csv_str, "\n");
+        //CSV_Parser cp2(current_day[0], /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
+        CSV_Parser cp2(csv_str, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
+        
+        //cp2.print();
+        uint16_t *dt_year = (uint16_t*)cp2[0];
+        uint8_t *dt_month = (uint8_t*)cp2[1];
+        uint8_t *dt_day = (uint8_t*)cp2[2];
+        /*
+        Serial.println(dt_year[0]);
+        Serial.println(dt_month[0]);
+        Serial.println(dt_day[0]);
+        */
 
-            strcpy(csv_str, current_time[0]);
-            strcat(csv_str, "\n");
-            //CSV_Parser cp3(current_time[0], /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
-            CSV_Parser cp3(csv_str, /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
-            
-            //cp3.print();
-            uint8_t *dt_hour = (uint8_t*)cp3[0];
-            uint8_t *dt_minute = (uint8_t*)cp3[1];
-            uint8_t *dt_second = (uint8_t*)cp3[2];
-            Serial.println(dt_hour[0]);
-            Serial.println(dt_minute[0]);
-            Serial.println(dt_second[0]);
+        strcpy(csv_str, current_time[0]);
+        strcat(csv_str, "\n");
+        //CSV_Parser cp3(current_time[0], /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
+        CSV_Parser cp3(csv_str, /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
+        
+        //cp3.print();
+        uint8_t *dt_hour = (uint8_t*)cp3[0];
+        uint8_t *dt_minute = (uint8_t*)cp3[1];
+        uint8_t *dt_second = (uint8_t*)cp3[2];
+        /*
+        Serial.println(dt_hour[0]);
+        Serial.println(dt_minute[0]);
+        Serial.println(dt_second[0]);
+        */
 
-            dt = DateTime(dt_year[0], dt_month[0], dt_day[0], dt_hour[0], dt_minute[0], dt_second[0]);
+        dt = DateTime(dt_year[0], dt_month[0], dt_day[0], dt_hour[0], dt_minute[0], dt_second[0]);
 
-            Serial.print(dt.unixtime());
-            Serial.print(',');
-            Serial.print(dt.year(), DEC);
-            Serial.print('/');
-            Serial.print(dt.month(), DEC);
-            Serial.print('/');
-            Serial.print(dt.day(), DEC);
-            Serial.print(' ');
-            Serial.print(dt.hour(), DEC);
-            Serial.print(':');
-            Serial.print(dt.minute(), DEC);
-            Serial.print(':');
-            Serial.print(dt.second(), DEC);
-            Serial.println();
-            //DateTime dt = DateTime(current_day[0], crrent_time[0]);
+        /*
+        Serial.print(dt.unixtime());
+        Serial.print(',');
+        Serial.print(dt.year(), DEC);
+        Serial.print('/');
+        Serial.print(dt.month(), DEC);
+        Serial.print('/');
+        Serial.print(dt.day(), DEC);
+        Serial.print(' ');
+        Serial.print(dt.hour(), DEC);
+        Serial.print(':');
+        Serial.print(dt.minute(), DEC);
+        Serial.print(':');
+        Serial.print(dt.second(), DEC);
+        Serial.println();
+        */
+        //DateTime dt = DateTime(current_day[0], crrent_time[0]);
 
-            M5.Lcd.println(number[0], DEC);
-            M5.Lcd.println(current_day[0]);
-            M5.Lcd.println(current_time[0]);
-            M5.Lcd.println(sun_elevation[0]);
-            M5.Lcd.println(sun_azimuth[0]);
+        M5.Lcd.printf("%d\n", dt.unixtime());
+        M5.Lcd.println(number[0], DEC);
+        M5.Lcd.println(current_day[0]);
+        M5.Lcd.println(current_time[0]);
+        M5.Lcd.println(sun_elevation[0]);
+        M5.Lcd.println(sun_azimuth[0]);
 
-            i = 0;
-            break;
-        }
+        i = 0;
+        break;
+      }
     }
   }
   //delay(3000);
