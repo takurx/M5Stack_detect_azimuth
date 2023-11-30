@@ -172,10 +172,73 @@ void setup () {
   myFile = SD.open("/info_sun_angle.csv", FILE_READ);  // Open the file "/info_sun_angle.csv" in read mode.
 }
 
+void seek_sd_card () {
+  char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
+  int i = 0;
+  DateTime ct = rtc.now();
+  DateTime dataTime;
+  while(1) {
+    while (myFile.available()) {        
+      int readData = myFile.read();
+      csv_str[i] = readData;
+      i++;
+      if (readData == '\n') {  // Read 1 line
+        CSV_Parser cp(csv_str, /*format*/ "Lssff", /*has_header*/ false, /*delimiter*/ ' ');
+
+        int32_t *number =          (int32_t*)cp[0];
+        char    **current_day =    (char**)cp[1];
+        char    **current_time =   (char**)cp[2];
+        float   *sun_elevation =   (float*)cp[3];
+        float   *sun_azimuth =     (float*)cp[4];
+
+        strcpy(csv_str, current_day[0]);
+        strcat(csv_str, "\n");
+        CSV_Parser cp2(csv_str, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
+        
+        //cp2.print();
+        uint16_t *dt_year = (uint16_t*)cp2[0];
+        uint8_t *dt_month = (uint8_t*)cp2[1];
+        uint8_t *dt_day = (uint8_t*)cp2[2];
+
+        strcpy(csv_str, current_time[0]);
+        strcat(csv_str, "\n");
+        CSV_Parser cp3(csv_str, /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
+        
+        //cp3.print();
+        uint8_t *dt_hour = (uint8_t*)cp3[0];
+        uint8_t *dt_minute = (uint8_t*)cp3[1];
+        uint8_t *dt_second = (uint8_t*)cp3[2];
+
+        dataTime = DateTime(dt_year[0], dt_month[0], dt_day[0], dt_hour[0], dt_minute[0], dt_second[0]);
+
+        //M5.Lcd.printf("%d\n", dataTime.unixtime());
+        Serial.print(ct.unixtime());
+        Serial.print(',');
+        Serial.println(dataTime.unixtime());
+        delay(10);
+
+        i = 0;
+        break;
+      }
+    }
+    if(ct.unixtime() < dataTime.unixtime()) {
+      //delay(3000);
+      break;
+    }
+  }
+}
+
+bool initial = false;
+
 void loop () {
   float magnetX1, magnetY1, magnetZ1;
   DateTime now, dt;
   float target_azimuth;
+
+  if(initial == 0) {
+    //seek_sd_card();
+    initial = true;
+  }
 
   // put your main code here, to run repeatedly:
   M5.update();
@@ -297,10 +360,12 @@ void loop () {
     M5.Lcd.setCursor(0, 0);
     //M5.Lcd.print("Hello World\n");
     if (pin_on_off_state) {
-      M5.Lcd.print("pin 5 is HIGH\n");
+      //M5.Lcd.print("pin 5 is HIGH\n");
+      M5.Lcd.println("Turn Clowckwise..., High");
     }
     else {
-      M5.Lcd.print("pin 5 is LOW\n");
+      //M5.Lcd.print("pin 5 is LOW\n");
+      M5.Lcd.println("Stop turning, Low");
     }
     
     //M5.Lcd.printf("yaw: % 5.2f, pitch: % 5.2f, roll: % 5.2f\n", (yaw), (pitch), (roll));
@@ -485,10 +550,10 @@ void loop () {
   if(yaw < target_azimuth + 5 && yaw > target_azimuth - 5) {
     digitalWrite(pin_on_off, LOW);
     pin_on_off_state = false;
-    M5.Lcd.println("Stop turning");
+    //M5.Lcd.println("Stop turning");
   }
   else {
-    M5.Lcd.println("Turn Clowckwise...");
+    //M5.Lcd.println("Turn Clowckwise...");
     digitalWrite(pin_on_off, HIGH);
     pin_on_off_state = true;
   }
