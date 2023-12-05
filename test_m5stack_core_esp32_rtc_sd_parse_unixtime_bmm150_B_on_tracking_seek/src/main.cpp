@@ -155,6 +155,7 @@ void setup () {
   rtc.start();
 
   // read SD card
+  // delay(3000);
   if (!SD.begin()) {  // Initialize the SD card.
     M5.Lcd.println("Card failed, or not present");  // Print a message if the SD card initialization fails or if the SD card does not exist
     while (1)
@@ -173,12 +174,12 @@ void setup () {
 }
 
 
-char csv_str_seek[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
+char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
 DateTime ct;
 DateTime dataTime;
     
 void seek_sd_card () {
-  //char csv_str_seek[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
+  //char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
   int i = 0;
   //DateTime ct = rtc.now();
   ct = rtc.now();
@@ -186,10 +187,10 @@ void seek_sd_card () {
   while(1) {
     while (myFile.available()) {        
       int readData = myFile.read();
-      csv_str_seek[i] = readData;
+      csv_str[i] = readData;
       i++;
       if (readData == '\n') {  // Read 1 line
-        CSV_Parser cp(csv_str_seek, /*format*/ "Lssff", /*has_header*/ false, /*delimiter*/ ' ');
+        CSV_Parser cp(csv_str, /*format*/ "Lssff", /*has_header*/ false, /*delimiter*/ ' ');
 
         int32_t *number_seek =          (int32_t*)cp[0];
         char    **current_day_seek =    (char**)cp[1];
@@ -197,18 +198,18 @@ void seek_sd_card () {
         float   *sun_elevation_seek =   (float*)cp[3];
         float   *sun_azimuth_seek =     (float*)cp[4];
 
-        strcpy(csv_str_seek, current_day_seek[0]);
-        strcat(csv_str_seek, "\n");
-        CSV_Parser cp2(csv_str_seek, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
+        strcpy(csv_str, current_day_seek[0]);
+        strcat(csv_str, "\n");
+        CSV_Parser cp2(csv_str, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
         
         //cp2.print();
         uint16_t *dt_year_seek = (uint16_t*)cp2[0];
         uint8_t *dt_month_seek = (uint8_t*)cp2[1];
         uint8_t *dt_day_seek = (uint8_t*)cp2[2];
 
-        strcpy(csv_str_seek, current_time_seek[0]);
-        strcat(csv_str_seek, "\n");
-        CSV_Parser cp3(csv_str_seek, /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
+        strcpy(csv_str, current_time_seek[0]);
+        strcat(csv_str, "\n");
+        CSV_Parser cp3(csv_str, /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
         
         //cp3.print();
         /*
@@ -234,6 +235,7 @@ void seek_sd_card () {
     }
     if(ct.unixtime() < dataTime.unixtime()) {
       //delay(3000);
+      Serial.println("ok, seek");
       break;
     }
   }
@@ -245,12 +247,14 @@ void loop () {
   float magnetX1, magnetY1, magnetZ1;
   DateTime now, dt;
   float target_azimuth;
-
+/*
   if(initial == 0) {
     seek_sd_card();
     initial = true;
+    Serial.println("finish seek");
+    delay(1000);
   }
-
+*/
   // put your main code here, to run repeatedly:
   M5.update();
   M5.IMU.getGyroData(&gyroX, &gyroY, &gyroZ);
@@ -441,7 +445,7 @@ void loop () {
     //Serial.println();
 
     //char csv_str[] = "3 2023-09-30 15:15:00 -55.70049406658381 19.366397684034716\n"; 
-    char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
+    //char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
     int i = 0;
 
     //DateTime dt;
