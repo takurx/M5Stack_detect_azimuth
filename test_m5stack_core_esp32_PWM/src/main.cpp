@@ -14,7 +14,7 @@ https://coskxlabsite.stars.ne.jp/html/for_students/M5Stack/PWMTest/PWMTest2.html
 
 uint8_t PIN_PWM_OUT = 5;
 uint8_t pwm_channel = 0;
-uint8_t pwm_duty = 128; // 50% = 128/256 = 128/2^8, pwm_resolution = 8
+uint8_t pwm_duty = 5; // 50% = 128/256 = 128/2^8, pwm_resolution = 8
   
 void setup() {
   M5.begin();
@@ -25,7 +25,7 @@ void setup() {
   pinMode(PIN_PWM_OUT, OUTPUT);
   //digitalWrite(pin_pwm_out, LOW);
   //uint8_t pwm_channel = 0;
-  uint32_t pwm_frequency = 1000;
+  uint32_t pwm_frequency = 100;
   uint8_t pwm_resolution = 8;
   ledcSetup(pwm_channel, pwm_frequency, pwm_resolution);
   ledcAttachPin(PIN_PWM_OUT, pwm_channel);
@@ -37,8 +37,26 @@ void loop() {
 
   if (M5.BtnA.wasPressed()) {
     M5.Lcd.print("Button A was pressed");
-    pwm_duty = pwm_duty + 32; // +12.5%
+    pwm_duty = pwm_duty + 1; // + 32; // +12.5%
+    M5.Lcd.printf("PWM Duty: %d\n", pwm_duty);
+    //ledcWrite(pwm_channel, pwm_duty);
+  }
+
+  if (M5.BtnB.wasPressed()) {
+    M5.Lcd.print("Button B was pressed");
+    pwm_duty = pwm_duty - 1; // - 32; // -12.5%
+    M5.Lcd.printf("PWM Duty: %d\n", pwm_duty);
+    //ledcWrite(pwm_channel, pwm_duty);
+  }
+
+  if (M5.BtnC.wasPressed()) {
+    M5.Lcd.print("Button C was pressed");
     M5.Lcd.printf("PWM Duty: %d\n", pwm_duty);
     ledcWrite(pwm_channel, pwm_duty);
+    //sleep(1); //100 Hz -> 100 pulse
+    //delay(500); //50 pulse, OK
+    //delay(100); //10 pulse, not work
+    delay(200); //20 pulse
+    ledcWrite(pwm_channel, 0);
   }
 }

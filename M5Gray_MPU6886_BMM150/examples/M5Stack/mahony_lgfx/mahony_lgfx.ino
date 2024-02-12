@@ -150,6 +150,10 @@ void setup()
 // 作成したスプライトはpushSpriteで任意の座標に出力できます。
 //  base.pushSprite(100,60); // (x,y)=((320-120)/2,(240-120)/2) lcdに対して
   
+  bmm150.getMagnetData(&magnetX, &magnetY, &magnetZ);
+  magnetaX = magnetX;
+  magnetaY = magnetY;
+  magnetaZ = magnetZ;
 }
 
 void compassplot(float a) {
@@ -195,11 +199,16 @@ void loop()
   gyroZ -= init_gyroZ;
   M5.IMU.getAccelData(&accX, &accY, &accZ);
   bmm150.getMagnetData(&magnetX, &magnetY, &magnetZ);
-  
+
+  /*
+  magnetX = magnetaX;
+  magnetY = magnetaY;
+  magnetZ = magnetaZ;
+
   magnetX = (magnetX - magoffsetX) * magscaleX;
   magnetY = (magnetY - magoffsetY) * magscaleY;
   magnetZ = (magnetZ - magoffsetZ) * magscaleZ;
-
+*/
   float head_dir = atan2(magnetX, magnetY);
   if(head_dir < 0)
     head_dir += 2*PI;
@@ -213,15 +222,12 @@ void loop()
   lastUpdate = Now;
 
 #ifdef MADGWICK
-  MadgwickQuaternionUpdate(accX, accY, accZ, gyroX * DEG_TO_RAD,
-                           gyroY * DEG_TO_RAD, gyroZ * DEG_TO_RAD,
-                           -magnetX, magnetY, -magnetZ, deltat);
+  MadgwickQuaternionUpdate(accX, accY, accZ, gyroX * DEG_TO_RAD, gyroY * DEG_TO_RAD, gyroZ * DEG_TO_RAD, -magnetX, magnetY, -magnetZ, deltat);
 #endif
 
 #ifdef MAHONY
-  MahonyQuaternionUpdate(accX, accY, accZ, gyroX * DEG_TO_RAD,
-                           gyroY * DEG_TO_RAD, gyroZ * DEG_TO_RAD,
-                           -magnetX, magnetY, -magnetZ, deltat);
+  MahonyQuaternionUpdate(accX, accY, accZ, gyroX * DEG_TO_RAD, gyroY * DEG_TO_RAD, gyroZ * DEG_TO_RAD, -magnetX, magnetY, -magnetZ, deltat);
+  //MahonyQuaternionUpdate(accX, accY, accZ, gyroX * DEG_TO_RAD, gyroY * DEG_TO_RAD, gyroZ * DEG_TO_RAD, 0, 0, 0, deltat);
 #endif
 
   yaw = atan2(2.0f * (*(getQ() + 1) * *(getQ() + 2) + *getQ() *
