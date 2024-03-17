@@ -98,6 +98,81 @@ void initGyro() {
   init_gyroZ /= AVERAGENUM_GY;
 }
 
+char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
+DateTime ct;
+DateTime dataTime;
+    
+void seek_sd_card () {
+  //char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
+  int i = 0;
+  //DateTime ct = rtc.now();
+  ct = rtc.now();
+  Serial.print(ct.unixtime());
+  //DateTime dataTime;
+  while(1) {
+    while (myFile.available()) {       
+      //delay(100); 
+      int readData = myFile.read();
+      csv_str[i] = readData;
+      i++;
+      //Serial.print(readData);
+      if (readData == '\n') {  // Read 1 line
+        //Serial.print("line next");
+        CSV_Parser cp(csv_str, /*format*/ "Lssff", /*has_header*/ false, /*delimiter*/ ' ');
+
+        int32_t *number_seek =          (int32_t*)cp[0];
+        char    **current_day_seek =    (char**)cp[1];
+        char    **current_time_seek =   (char**)cp[2];
+        float   *sun_elevation_seek =   (float*)cp[3];
+        float   *sun_azimuth_seek =     (float*)cp[4];
+
+        //Serial.print(current_day_seek[0]);
+        //Serial.print(", ");
+
+        strcpy(csv_str, current_day_seek[0]);
+        strcat(csv_str, "\n");
+        CSV_Parser cp2(csv_str, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
+        
+        //cp2.print();
+        uint16_t *dt_year_seek = (uint16_t*)cp2[0];
+        uint8_t *dt_month_seek = (uint8_t*)cp2[1];
+        uint8_t *dt_day_seek = (uint8_t*)cp2[2];
+
+        strcpy(csv_str, current_time_seek[0]);
+        strcat(csv_str, "\n");
+        CSV_Parser cp3(csv_str, /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
+        
+        //cp3.print();
+        uint8_t *dt_hour_seek = (uint8_t*)cp3[0];
+        uint8_t *dt_minute_seek = (uint8_t*)cp3[1];
+        uint8_t *dt_second_seek = (uint8_t*)cp3[2];
+        
+        /*
+        uint8_t *dt_hour_seek = 0;
+        uint8_t *dt_minute_seek = 0;
+        uint8_t *dt_second_seek = 0;
+        */
+
+        dataTime = DateTime(dt_year_seek[0], dt_month_seek[0], dt_day_seek[0], dt_hour_seek[0], dt_minute_seek[0], dt_second_seek[0]);
+
+        //M5.Lcd.printf("%d\n", dataTime.unixtime());
+        Serial.print(ct.unixtime());
+        Serial.print(',');
+        Serial.println(dataTime.unixtime());
+        //delay(100);
+
+        i = 0;
+        break;
+      }
+    }
+    if(ct.unixtime() < dataTime.unixtime()) {
+      //delay(3000);
+      Serial.println("ok, seek");
+      break;
+    }
+  }
+}
+
 void setup () {
   M5.begin();
   M5.Power.begin();
@@ -171,75 +246,14 @@ void setup () {
 
   // print line from SD card
   myFile = SD.open("/info_sun_angle.csv", FILE_READ);  // Open the file "/info_sun_angle.csv" in read mode.
+
+  delay(1000);
+  seek_sd_card();
+  Serial.println("finish seek");
+  delay(1000);
 }
 
 
-char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
-DateTime ct;
-DateTime dataTime;
-    
-void seek_sd_card () {
-  //char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
-  int i = 0;
-  //DateTime ct = rtc.now();
-  ct = rtc.now();
-  //DateTime dataTime;
-  while(1) {
-    while (myFile.available()) {        
-      int readData = myFile.read();
-      csv_str[i] = readData;
-      i++;
-      if (readData == '\n') {  // Read 1 line
-        CSV_Parser cp(csv_str, /*format*/ "Lssff", /*has_header*/ false, /*delimiter*/ ' ');
-
-        int32_t *number_seek =          (int32_t*)cp[0];
-        char    **current_day_seek =    (char**)cp[1];
-        char    **current_time_seek =   (char**)cp[2];
-        float   *sun_elevation_seek =   (float*)cp[3];
-        float   *sun_azimuth_seek =     (float*)cp[4];
-
-        strcpy(csv_str, current_day_seek[0]);
-        strcat(csv_str, "\n");
-        CSV_Parser cp2(csv_str, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
-        
-        //cp2.print();
-        uint16_t *dt_year_seek = (uint16_t*)cp2[0];
-        uint8_t *dt_month_seek = (uint8_t*)cp2[1];
-        uint8_t *dt_day_seek = (uint8_t*)cp2[2];
-
-        strcpy(csv_str, current_time_seek[0]);
-        strcat(csv_str, "\n");
-        CSV_Parser cp3(csv_str, /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
-        
-        //cp3.print();
-        /*
-        uint8_t *dt_hour_seek = (uint8_t*)cp3[0];
-        uint8_t *dt_minute_seek = (uint8_t*)cp3[1];
-        uint8_t *dt_second_seek = (uint8_t*)cp3[2];
-        */
-        uint8_t *dt_hour_seek = 0;
-        uint8_t *dt_minute_seek = 0;
-        uint8_t *dt_second_seek = 0;
-
-        dataTime = DateTime(dt_year_seek[0], dt_month_seek[0], dt_day_seek[0], dt_hour_seek[0], dt_minute_seek[0], dt_second_seek[0]);
-
-        //M5.Lcd.printf("%d\n", dataTime.unixtime());
-        //Serial.print(ct.unixtime());
-        //Serial.print(',');
-        //Serial.println(dataTime.unixtime());
-        //delay(100);
-
-        i = 0;
-        break;
-      }
-    }
-    if(ct.unixtime() < dataTime.unixtime()) {
-      //delay(3000);
-      Serial.println("ok, seek");
-      break;
-    }
-  }
-}
 
 bool initial = false;
 
