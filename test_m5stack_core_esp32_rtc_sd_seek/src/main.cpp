@@ -23,7 +23,8 @@ RTC_PCF8563 rtc;
 
 char timeStrbuff[64];
 
-unsigned int periodWorkMinute = 5;
+//uint8_t periodWorkMinute = 5;
+int periodWorkMinute = 5;
 bool isTurn;
 
 char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
@@ -31,6 +32,34 @@ DateTime ct;
 DateTime dataTime;
 
 File myFile;
+
+int32_t *number_seek;
+char    **current_day_seek;
+char    **current_time_seek;
+float   *sun_elevation_seek;
+float   *sun_azimuth_seek;
+
+uint16_t *dt_year_seek;
+uint8_t *dt_month_seek;
+uint8_t *dt_day_seek;
+
+uint8_t *dt_hour_seek;
+uint8_t *dt_minute_seek;
+uint8_t *dt_second_seek;
+
+int32_t *number;
+char    **current_day;
+char    **current_time;
+float   *sun_elevation;
+float   *sun_azimuth;
+
+uint16_t *dt_year;
+uint8_t *dt_month;
+uint8_t *dt_day;
+
+uint8_t *dt_hour;
+uint8_t *dt_minute;
+uint8_t *dt_second;
 
 void seek_sd_card () {
   //char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
@@ -50,11 +79,11 @@ void seek_sd_card () {
         //Serial.print("line next");
         CSV_Parser cp(csv_str, /*format*/ "Lssff", /*has_header*/ false, /*delimiter*/ ' ');
 
-        int32_t *number_seek =          (int32_t*)cp[0];
-        char    **current_day_seek =    (char**)cp[1];
-        char    **current_time_seek =   (char**)cp[2];
-        float   *sun_elevation_seek =   (float*)cp[3];
-        float   *sun_azimuth_seek =     (float*)cp[4];
+        number_seek =          (int32_t*)cp[0];
+        current_day_seek =    (char**)cp[1];
+        current_time_seek =   (char**)cp[2];
+        sun_elevation_seek =   (float*)cp[3];
+        sun_azimuth_seek =     (float*)cp[4];
 
         //Serial.print(current_day_seek[0]);
         //Serial.print(", ");
@@ -64,18 +93,18 @@ void seek_sd_card () {
         CSV_Parser cp2(csv_str, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
         
         //cp2.print();
-        uint16_t *dt_year_seek = (uint16_t*)cp2[0];
-        uint8_t *dt_month_seek = (uint8_t*)cp2[1];
-        uint8_t *dt_day_seek = (uint8_t*)cp2[2];
+        dt_year_seek = (uint16_t*)cp2[0];
+        dt_month_seek = (uint8_t*)cp2[1];
+        dt_day_seek = (uint8_t*)cp2[2];
 
         strcpy(csv_str, current_time_seek[0]);
         strcat(csv_str, "\n");
         CSV_Parser cp3(csv_str, /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
         
         //cp3.print();
-        uint8_t *dt_hour_seek = (uint8_t*)cp3[0];
-        uint8_t *dt_minute_seek = (uint8_t*)cp3[1];
-        uint8_t *dt_second_seek = (uint8_t*)cp3[2];
+        dt_hour_seek = (uint8_t*)cp3[0];
+        dt_minute_seek = (uint8_t*)cp3[1];
+        dt_second_seek = (uint8_t*)cp3[2];
         
         /*
         uint8_t *dt_hour_seek = 0;
@@ -86,10 +115,11 @@ void seek_sd_card () {
         dataTime = DateTime(dt_year_seek[0], dt_month_seek[0], dt_day_seek[0], dt_hour_seek[0], dt_minute_seek[0], dt_second_seek[0]);
 
         //M5.Lcd.printf("%d\n", dataTime.unixtime());
-        Serial.print(ct.unixtime());
+        //Serial.print(ct.unixtime());
         Serial.print(',');
-        Serial.println(dataTime.unixtime());
+        //Serial.println(dataTime.unixtime());
         //delay(100);
+        //delay(2);
 
         i = 0;
         break;
@@ -142,7 +172,7 @@ void setup () {
   // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   // This line sets the RTC with an explicit date & time, for example to set
   // January 21, 2014 at 3am you would call:
-  // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+  //rtc.adjust(DateTime(2024, 3, 21, 9, 3, 0));
 
   // When the RTC was stopped and stays connected to the battery, it has
   // to be restarted by clearing the STOP bit. Let's do this to ensure
@@ -173,7 +203,23 @@ void setup () {
   seek_sd_card();
   Serial.println("finish seek");
   delay(1000);
+
+  number = number_seek;
+  current_day = current_day_seek;
+  current_time = current_time_seek;
+  sun_elevation = sun_elevation_seek;
+  sun_azimuth = sun_azimuth_seek;
+  
+  dt_year = dt_year_seek;
+  dt_month = dt_month_seek;
+  dt_day = dt_day_seek;
+  
+  dt_hour = dt_hour_seek;
+  dt_minute = dt_minute_seek;
+  dt_second = dt_second_seek;
 }
+
+
 
 void loop () {
     DateTime now = rtc.now();
@@ -199,9 +245,27 @@ void loop () {
     Serial.print(now.minute(), DEC);
     Serial.print(':');
     Serial.print(now.second(), DEC);
+    Serial.print(", ");
+    Serial.print(isTurn);
+
+    Serial.print(", ");
+    uint8_t now_minute = now.minute();
+    Serial.print(now_minute);
+
+    //uint8_t checkPeriod = now_minute%periodWorkMinute;
+    int current_minute = int(now_minute);
+    Serial.print(", ");
+    Serial.print(current_minute);
+    int checkPeriod = 0;
+    //checkPeriod = current_minute%periodWorkMinute;
+    checkPeriod = current_minute%5;
+    Serial.print(", ");
+    Serial.print(checkPeriod);
+
     Serial.println();
 
-    if (now.minute()%periodWorkMinute == 0 && isTurn == false)
+    //if (now.minute()%periodWorkMinute == 0 && isTurn == false)
+    if (checkPeriod == 0 && isTurn == false)
     {
         isTurn = true;
         Serial.println("5 minutes turn");
@@ -219,11 +283,11 @@ void loop () {
             //M5.Lcd.clear();
             //M5.Lcd.setCursor(0, 0);
 
-            int32_t *number =          (int32_t*)cp[0];
-            char    **current_day =    (char**)cp[1];
-            char    **current_time =   (char**)cp[2];
-            float   *sun_elevation =   (float*)cp[3];
-            float   *sun_azimuth =     (float*)cp[4];
+            number =        (int32_t*)cp[0];
+            current_day =   (char**)cp[1];
+            current_time =  (char**)cp[2];
+            sun_elevation = (float*)cp[3];
+            sun_azimuth =   (float*)cp[4];
               
             Serial.print(number[0], DEC);       Serial.print(" - ");
             Serial.print(current_day[0]);       Serial.print(" - ");
@@ -237,7 +301,7 @@ void loop () {
             //char current_day_test[] = "2023-11-25";
             //char current_day_test[] = "2023-11-25\n";
             //CSV_Parser cp2(current_day_test, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
-            //stcurrent_day[0] << "\n";
+            //stcurrent_day[0periodWorkMinute] << "\n";
             //strcat(current_day[0], "\n");
 
             strcpy(csv_str, current_day[0]);
@@ -246,9 +310,9 @@ void loop () {
             CSV_Parser cp2(csv_str, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
             
             //cp2.print();
-            uint16_t *dt_year = (uint16_t*)cp2[0];
-            uint8_t *dt_month = (uint8_t*)cp2[1];
-            uint8_t *dt_day = (uint8_t*)cp2[2];
+            dt_year = (uint16_t*)cp2[0];
+            dt_month = (uint8_t*)cp2[1];
+            dt_day = (uint8_t*)cp2[2];
             /*
             Serial.println(dt_year[0]);
             Serial.println(dt_month[0]);
@@ -261,9 +325,9 @@ void loop () {
             CSV_Parser cp3(csv_str, /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
             
             //cp3.print();
-            uint8_t *dt_hour = (uint8_t*)cp3[0];
-            uint8_t *dt_minute = (uint8_t*)cp3[1];
-            uint8_t *dt_second = (uint8_t*)cp3[2];
+            dt_hour = (uint8_t*)cp3[0];
+            dt_minute = (uint8_t*)cp3[1];
+            dt_second = (uint8_t*)cp3[2];
             /*
             Serial.println(dt_hour[0]);
             Serial.println(dt_minute[0]);
@@ -297,12 +361,15 @@ void loop () {
             M5.Lcd.println(sun_azimuth[0]);
             */
 
+            /*
             M5.Lcd.printf("%d\n", dt.unixtime());
             M5.Lcd.print(current_day[0]);
             M5.Lcd.print(" ");
             M5.Lcd.println(current_time[0]);
             M5.Lcd.print("Target: ");
             M5.Lcd.println(sun_azimuth[0]);
+            */
+            
             //target_azimuth = sun_azimuth[0];
             //M5.Lcd.println(target_azimuth);
 
@@ -311,7 +378,7 @@ void loop () {
           }
         }
     }
-    else if (now.minute()%periodWorkMinute != 0)
+    else if (checkPeriod != 0 && isTurn == true)
     {
         isTurn = false;
     }
@@ -319,6 +386,14 @@ void loop () {
     {
         // do nothing
     }
+
+    M5.Lcd.printf("\n");
+    M5.Lcd.printf("%d\n", dt.unixtime());
+    M5.Lcd.print(current_day[0]);
+    M5.Lcd.print(" ");
+    M5.Lcd.println(current_time[0]);
+    M5.Lcd.print("Target: ");
+    M5.Lcd.println(sun_azimuth[0]);
 
     delay(3000);
 }
