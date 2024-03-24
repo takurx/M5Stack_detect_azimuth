@@ -24,7 +24,7 @@ RTC_PCF8563 rtc;
 char timeStrbuff[64];
 
 //uint8_t periodWorkMinute = 5;
-int periodWorkMinute = 5;
+const int periodWorkMinute = 5;
 bool isTurn;
 
 char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
@@ -231,6 +231,7 @@ void loop () {
     sprintf(timeStrbuff, "%d/%02d/%02d %02d:%02d:%02d", now.year(),
             now.month(), now.day(), now.hour(), now.minute(), now.second());
     M5.Lcd.print(timeStrbuff);
+    M5.Lcd.print(" UTC");
 
     Serial.print(now.year(), DEC);
     Serial.print('/');
@@ -258,8 +259,8 @@ void loop () {
     Serial.print(", ");
     Serial.print(current_minute);
     int checkPeriod = 0;
-    //checkPeriod = current_minute%periodWorkMinute;
-    checkPeriod = current_minute%5;
+    checkPeriod = current_minute%periodWorkMinute;
+    //checkPeriod = current_minute%5;
     Serial.print(", ");
     Serial.print(checkPeriod);
 
