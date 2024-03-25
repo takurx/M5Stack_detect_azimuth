@@ -14,7 +14,7 @@ https://coskxlabsite.stars.ne.jp/html/for_students/M5Stack/PWMTest/PWMTest2.html
 
 uint8_t PIN_PWM_OUT = 5;
 uint8_t pwm_channel = 0;
-uint8_t pwm_duty = 5; // 50% = 128/256 = 128/2^8, pwm_resolution = 8
+uint8_t pwm_duty = 32; // 50% = 128/256 = 128/2^8, pwm_resolution = 8
   
 void setup() {
   M5.begin();
@@ -29,11 +29,21 @@ void setup() {
   uint8_t pwm_resolution = 8;
   ledcSetup(pwm_channel, pwm_frequency, pwm_resolution);
   ledcAttachPin(PIN_PWM_OUT, pwm_channel);
-  ledcWrite(pwm_channel, pwm_duty);
+  //ledcWrite(pwm_channel, pwm_duty);
+  //ledcWrite(pwm_channel, 0);
 }
 
+int i = 0;
 void loop() {
   M5.update();
+
+  while (i < 20) {
+    ledcWrite(pwm_channel, pwm_duty);
+    delay(200);
+    ledcWrite(pwm_channel, 0);
+    delay(1000);
+    i++;
+  }
 
   if (M5.BtnA.wasPressed()) {
     M5.Lcd.print("Button A was pressed");
@@ -56,7 +66,8 @@ void loop() {
     //sleep(1); //100 Hz -> 100 pulse
     //delay(500); //50 pulse, OK
     //delay(100); //10 pulse, not work
-    delay(200); //20 pulse
+    //delay(200); //20 pulse
+    delay(400); //40 pulse
     ledcWrite(pwm_channel, 0);
   }
 }
