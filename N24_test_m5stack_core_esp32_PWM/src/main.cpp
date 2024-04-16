@@ -14,7 +14,7 @@ https://coskxlabsite.stars.ne.jp/html/for_students/M5Stack/PWMTest/PWMTest2.html
 
 uint8_t PIN_PWM_OUT = 5;
 uint8_t pwm_channel = 0;
-uint8_t pwm_duty = 32; // 50% = 128/256 = 128/2^8, pwm_resolution = 8
+uint8_t pwm_duty = 16; // 50% = 128/256 = 128/2^8, pwm_resolution = 8
   
 void setup() {
   M5.begin();
@@ -37,7 +37,7 @@ int i = 0;
 void loop() {
   M5.update();
 
-  while (i < 20) {
+  while (i < 10) {
     ledcWrite(pwm_channel, pwm_duty);
     delay(200);
     ledcWrite(pwm_channel, 0);
