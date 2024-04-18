@@ -26,6 +26,12 @@ https://registry.platformio.org/libraries/adafruit/RTClib/installation
 #include "BMM150class.h"
 #include <utility/quaternionFilters.h>
 
+
+
+// globala variable
+//
+//
+
 //#define DISPLAY_AHRS
 
 uint8_t PIN_PWM_OUT = 5;
@@ -33,6 +39,8 @@ uint8_t pwm_channel = 0;
 uint8_t pwm_duty = 16; // 50% = 128/256 = 128/2^8, pwm_resolution = 8
 
 float current_azimuth; // 0.00 is North, 90.00 is East, 180.00 is South, 270.00 is West
+float target_azimuth;
+float last_target_azimuth;
 
 RTC_PCF8563 rtc;
 
@@ -117,6 +125,14 @@ uint8_t *dt_day;
 uint8_t *dt_hour;
 uint8_t *dt_minute;
 uint8_t *dt_second;
+
+bool state_azimuth = false;
+
+
+
+// function
+//
+//
 
 void initGyro() {
   M5.Lcd.fillScreen(BLACK);
@@ -210,8 +226,6 @@ void seek_sd_card () {
     }
   }
 }
-
-bool state_azimuth = false;
 
 void work_0p75Degree () {
   ledcWrite(pwm_channel, pwm_duty);
@@ -370,7 +384,8 @@ void setup () {
   //seek_sd_card();
   //Serial.println("finish seek");
   //delay(1000);
-  float target_azimuth = *sun_azimuth;
+  //float target_azimuth = *sun_azimuth;
+  target_azimuth = *sun_azimuth;
   int init_azimuth_count = int(target_azimuth) / 100; // 0-360.00 / 100 = 0-3
   Serial.print(target_azimuth);
   Serial.print(", ");
@@ -742,7 +757,8 @@ void loop () {
           M5.Lcd.println(sun_azimuth[0]);
           */
           
-          //target_azimuth = sun_azimuth[0];
+          last_target_azimuth = target_azimuth;
+          target_azimuth = sun_azimuth[0];
           //M5.Lcd.println(target_azimuth);
 
           i = 0;
@@ -763,21 +779,39 @@ void loop () {
     M5.Lcd.print(" ");
     M5.Lcd.println(current_time[0]);
     M5.Lcd.print("Target: ");
-    M5.Lcd.println(sun_azimuth[0]);
+    //M5.Lcd.println(sun_azimuth[0]);
+    M5.Lcd.println(target_azimuth);
     M5.Lcd.print("Current_Azimuth: ");
     M5.Lcd.println(current_azimuth);
     M5.Lcd.print("Sensor_Azimuth: ");
     M5.Lcd.println(yaw);
-
-    if (current_azimuth > sun_azimuth[0]) {
-      //delay(3000);
-    }
-    else {
+    
+    //if (current_azimuth < sun_azimuth[0]) {
+    if (current_azimuth < target_azimuth) {
       work_0p75Degree();
       current_azimuth = current_azimuth + 0.90;
       //delay(2800);
       //200+2800=3000ms, move 0.1 degree -> 5 minutes = 300000ms, 
       //300000/3000 = 100 times, 0.1 deg * 100 times = 10.0 deg
+      if (current_azimuth > 360.00) {
+        current_azimuth = current_azimuth - 360.00;
+      }
+    }
+    else if (current_azimuth > target_azimuth && last_target_azimuth > target_azimuth && current_azimuth < target_azimuth + 360.0) {
+      // example
+      // current_azimuth = 350.00
+      // target_azimuth = 1.97
+      // last_target_azimuth = 357.59
+
+      work_0p75Degree();
+      current_azimuth = current_azimuth + 0.90;
+      if (current_azimuth > 360.00) {
+        current_azimuth = current_azimuth - 360.00;
+      }
+    }
+    else {   // current_azimuth > target_azimuth
+      //delay(3000);
+      // do nothing
     }
   }
 }
