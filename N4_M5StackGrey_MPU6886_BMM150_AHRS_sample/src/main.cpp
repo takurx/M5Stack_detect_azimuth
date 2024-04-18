@@ -79,7 +79,7 @@ void setup()
   bmm150.getMagnetScale(&magscaleX, &magscaleY, &magscaleZ);
 
   M5.Lcd.fillScreen(BLACK);
-  M5.Lcd.setTextColor(GREEN, BLACK);
+  //M5.Lcd.setTextColor(GREEN, BLACK);
   M5.Lcd.setTextSize(2);
 }
 
@@ -153,8 +153,11 @@ void loop()
   // - http://www.ngdc.noaa.gov/geomag-web/#declination
   //  yaw -= 8.5;
 #ifdef DISPLAY_AHRS
-  M5.Lcd.setCursor(0, 100);
-  M5.Lcd.printf("  yaw: % 5.2f    pitch: % 5.2f    roll: % 5.2f   \r\n", (yaw), (pitch), (roll));
+  M5.Lcd.clear();
+  M5.Lcd.setCursor(0, 0);
+  //M5.Lcd.printf("  yaw: % 5.2f    pitch: % 5.2f    roll: % 5.2f   \r\n", (yaw), (pitch), (roll));
+  M5.Lcd.printf("yaw: %5.2f \r\n", (yaw));
+  M5.Lcd.printf("pitch: %5.2f \r\n", (pitch));
 #endif
 
   M5.Lcd.setCursor(20, 220);
@@ -177,8 +180,8 @@ void loop()
     bmm150.getMagnetOffset(&magoffsetX, &magoffsetY, &magoffsetZ);
     bmm150.getMagnetScale(&magscaleX, &magscaleY, &magscaleZ);
 
-    M5.Lcd.fillScreen(BLACK);
-    M5.Lcd.setTextColor(GREEN, BLACK);
-    M5.Lcd.setTextSize(2);
+    //M5.Lcd.fillScreen(BLACK);
+    //M5.Lcd.setTextColor(GREEN, BLACK);
+    //M5.Lcd.setTextSize(2);
   }
 }

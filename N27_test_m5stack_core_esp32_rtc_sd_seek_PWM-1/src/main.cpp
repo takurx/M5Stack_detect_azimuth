@@ -258,6 +258,12 @@ void setup () {
       Serial.print(", ");
       Serial.println(current_azimuth);
 
+      M5.Lcd.clear();
+      M5.Lcd.setCursor(0, 0);
+      M5.Lcd.print(sun_azimuth[0]);
+      M5.Lcd.print(", ");
+      M5.Lcd.println(current_azimuth);
+
       work_0p75Degree();
       current_azimuth = current_azimuth + 0.90;
       delay(800); 
