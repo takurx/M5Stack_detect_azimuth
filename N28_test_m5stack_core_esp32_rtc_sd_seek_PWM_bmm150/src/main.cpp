@@ -352,6 +352,7 @@ void setup () {
 
   //current_azimuth = 235.00;
   current_azimuth = 0.00;
+  //current_azimuth = sun_azimuth;
 
   /*
   while(1)
@@ -386,6 +387,7 @@ void setup () {
   //delay(1000);
   //float target_azimuth = *sun_azimuth;
   target_azimuth = *sun_azimuth;
+  current_azimuth = target_azimuth;
   int init_azimuth_count = int(target_azimuth) / 100; // 0-360.00 / 100 = 0-3
   Serial.print(target_azimuth);
   Serial.print(", ");
@@ -533,8 +535,10 @@ void loop () {
 
   if (M5.BtnA.wasPressed()) {
     M5.Lcd.println("Button A was pressed");
-    current_azimuth = 90.00;
-    M5.Lcd.println("Reset azimuth to 90.00");
+    //current_azimuth = 90.00;
+    //M5.Lcd.println("Reset azimuth to 90.00");
+    current_azimuth = target_azimuth;
+    M5.Lcd.println("Reset azimuth to target azimuth");
   }
   if (M5.BtnB.wasPressed()) {
     M5.Lcd.println("Button B was pressed");
@@ -579,7 +583,7 @@ void loop () {
     if (state_azimuth == false) {
       work_azimuth_run();
     }
-    else {
+    else { // state_azimuth == true
       work_azimuth_stop();
     }
     //current_azimuth = 0.00;
@@ -606,212 +610,215 @@ void loop () {
     */
   }
 
-  deltat = ((currentTime - lastAzimuthUpdate) / 1000000.0f);
-  if (deltat > 3.0)
+  if (state_azimuth == false) 
   {
-    lastAzimuthUpdate = currentTime;
+    deltat = ((currentTime - lastAzimuthUpdate) / 1000000.0f);
+    if (deltat > 3.0)
+    {
+      lastAzimuthUpdate = currentTime;
 
-    M5.Lcd.clear();
-    M5.Lcd.setCursor(0, 0);
+      M5.Lcd.clear();
+      M5.Lcd.setCursor(0, 0);
 
-    sprintf(timeStrbuff, "%d/%02d/%02d %02d:%02d:%02d", now.year(),
-          now.month(), now.day(), now.hour(), now.minute(), now.second());
-    M5.Lcd.print(timeStrbuff);
-    M5.Lcd.print(" UTC");
+      sprintf(timeStrbuff, "%d/%02d/%02d %02d:%02d:%02d", now.year(),
+            now.month(), now.day(), now.hour(), now.minute(), now.second());
+      M5.Lcd.print(timeStrbuff);
+      M5.Lcd.print(" UTC");
 
-    Serial.print(now.year(), DEC);
-    Serial.print('/');
-    Serial.print(now.month(), DEC);
-    Serial.print('/');  
-    Serial.print(now.day(), DEC);
-    Serial.print(" ");
-    //Serial.print(" (");
-    //Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
-    //Serial.print(") ");
-    Serial.print(now.hour(), DEC);
-    Serial.print(':');
-    Serial.print(now.minute(), DEC);
-    Serial.print(':');
-    Serial.print(now.second(), DEC);
-    Serial.print(", ");
-    Serial.print(isTurn);
+      Serial.print(now.year(), DEC);
+      Serial.print('/');
+      Serial.print(now.month(), DEC);
+      Serial.print('/');  
+      Serial.print(now.day(), DEC);
+      Serial.print(" ");
+      //Serial.print(" (");
+      //Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
+      //Serial.print(") ");
+      Serial.print(now.hour(), DEC);
+      Serial.print(':');
+      Serial.print(now.minute(), DEC);
+      Serial.print(':');
+      Serial.print(now.second(), DEC);
+      Serial.print(", ");
+      Serial.print(isTurn);
 
-    Serial.print(", ");
-    uint8_t now_minute = now.minute();
-    Serial.print(now_minute);
+      Serial.print(", ");
+      uint8_t now_minute = now.minute();
+      Serial.print(now_minute);
 
-    //uint8_t checkPeriod = now_minute%periodWorkMinute;
-    int current_minute = int(now_minute);
-    Serial.print(", ");
-    Serial.print(current_minute);
-    int checkPeriod = 0;
-    checkPeriod = current_minute%periodWorkMinute;
-    //checkPeriod = current_minute%5;
-    Serial.print(", ");
-    Serial.print(checkPeriod);
+      //uint8_t checkPeriod = now_minute%periodWorkMinute;
+      int current_minute = int(now_minute);
+      Serial.print(", ");
+      Serial.print(current_minute);
+      int checkPeriod = 0;
+      checkPeriod = current_minute%periodWorkMinute;
+      //checkPeriod = current_minute%5;
+      Serial.print(", ");
+      Serial.print(checkPeriod);
 
-    Serial.println();
+      Serial.println();
 
-    //if (now.minute()%periodWorkMinute == 0 && isTurn == false)
-    if (checkPeriod == 0 && isTurn == false) {
-      isTurn = true;
-      Serial.println("5 minutes turn");
+      //if (now.minute()%periodWorkMinute == 0 && isTurn == false)
+      if (checkPeriod == 0 && isTurn == false) {
+        isTurn = true;
+        Serial.println("5 minutes turn");
 
-      i = 0;
-      while (myFile.available()) {        
-        readData_loop = myFile.read();
-        csv_str[i] = readData_loop;
-        i++;
-        //M5.Lcd.write(readData_loop);
-        if (readData_loop == '\n') {  // Read 1 line
-          CSV_Parser cp(csv_str, /*format*/ "Lssff", /*has_header*/ false, /*delimiter*/ ' ');
+        i = 0;
+        while (myFile.available()) {        
+          readData_loop = myFile.read();
+          csv_str[i] = readData_loop;
+          i++;
+          //M5.Lcd.write(readData_loop);
+          if (readData_loop == '\n') {  // Read 1 line
+            CSV_Parser cp(csv_str, /*format*/ "Lssff", /*has_header*/ false, /*delimiter*/ ' ');
 
-          //cp.print();
-          //M5.Lcd.clear();
-          //M5.Lcd.setCursor(0, 0);
+            //cp.print();
+            //M5.Lcd.clear();
+            //M5.Lcd.setCursor(0, 0);
 
-          number =        (int32_t*)cp[0];
-          current_day =   (char**)cp[1];
-          current_time =  (char**)cp[2];
-          sun_elevation = (float*)cp[3];
-          sun_azimuth =   (float*)cp[4];
-            
-          Serial.print(number[0], DEC);       Serial.print(" - ");
-          Serial.print(current_day[0]);       Serial.print(" - ");
-          Serial.print(current_time[0]);      Serial.print(" - ");
-          Serial.print(sun_elevation[0]);     Serial.print(" - ");
-          Serial.print(sun_azimuth[0]);       Serial.println();
-
-          //DateTime dt = DateTime(2023, 11, 25, 21, 35, 00);
-          //DateTime dt;
+            number =        (int32_t*)cp[0];
+            current_day =   (char**)cp[1];
+            current_time =  (char**)cp[2];
+            sun_elevation = (float*)cp[3];
+            sun_azimuth =   (float*)cp[4];
               
-          //char current_day_test[] = "2023-11-25";
-          //char current_day_test[] = "2023-11-25\n";
-          //CSV_Parser cp2(current_day_test, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
-          //stcurrent_day[0periodWorkMinute] << "\n";
-          //strcat(current_day[0], "\n");
+            Serial.print(number[0], DEC);       Serial.print(" - ");
+            Serial.print(current_day[0]);       Serial.print(" - ");
+            Serial.print(current_time[0]);      Serial.print(" - ");
+            Serial.print(sun_elevation[0]);     Serial.print(" - ");
+            Serial.print(sun_azimuth[0]);       Serial.println();
 
-          strcpy(csv_str, current_day[0]);
-          strcat(csv_str, "\n");
-          //CSV_Parser cp2(current_day[0], /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
-          CSV_Parser cp2(csv_str, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
-          
-          //cp2.print();
-          dt_year = (uint16_t*)cp2[0];
-          dt_month = (uint8_t*)cp2[1];
-          dt_day = (uint8_t*)cp2[2];
-          /*
-          Serial.println(dt_year[0]);
-          Serial.println(dt_month[0]);
-          Serial.println(dt_day[0]);
-          */
+            //DateTime dt = DateTime(2023, 11, 25, 21, 35, 00);
+            //DateTime dt;
+                
+            //char current_day_test[] = "2023-11-25";
+            //char current_day_test[] = "2023-11-25\n";
+            //CSV_Parser cp2(current_day_test, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
+            //stcurrent_day[0periodWorkMinute] << "\n";
+            //strcat(current_day[0], "\n");
 
-          strcpy(csv_str, current_time[0]);
-          strcat(csv_str, "\n");
-          //CSV_Parser cp3(current_time[0], /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
-          CSV_Parser cp3(csv_str, /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
-          
-          //cp3.print();
-          dt_hour = (uint8_t*)cp3[0];
-          dt_minute = (uint8_t*)cp3[1];
-          dt_second = (uint8_t*)cp3[2];
-          /*
-          Serial.println(dt_hour[0]);
-          Serial.println(dt_minute[0]);
-          Serial.println(dt_second[0]);
-          */
+            strcpy(csv_str, current_day[0]);
+            strcat(csv_str, "\n");
+            //CSV_Parser cp2(current_day[0], /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
+            CSV_Parser cp2(csv_str, /*format*/ "uducuc", /*has_header*/ false, /*delimiter*/ '-');
+            
+            //cp2.print();
+            dt_year = (uint16_t*)cp2[0];
+            dt_month = (uint8_t*)cp2[1];
+            dt_day = (uint8_t*)cp2[2];
+            /*
+            Serial.println(dt_year[0]);
+            Serial.println(dt_month[0]);
+            Serial.println(dt_day[0]);
+            */
 
-          dt = DateTime(dt_year[0], dt_month[0], dt_day[0], dt_hour[0], dt_minute[0], dt_second[0]);
+            strcpy(csv_str, current_time[0]);
+            strcat(csv_str, "\n");
+            //CSV_Parser cp3(current_time[0], /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
+            CSV_Parser cp3(csv_str, /*format*/ "ucucuc", /*has_header*/ false, /*delimiter*/ ':');
+            
+            //cp3.print();
+            dt_hour = (uint8_t*)cp3[0];
+            dt_minute = (uint8_t*)cp3[1];
+            dt_second = (uint8_t*)cp3[2];
+            /*
+            Serial.println(dt_hour[0]);
+            Serial.println(dt_minute[0]);
+            Serial.println(dt_second[0]);
+            */
 
-          Serial.print(dt.unixtime());
-          Serial.print(',');
-          Serial.print(dt.year(), DEC);
-          Serial.print('/');
-          Serial.print(dt.month(), DEC);
-          Serial.print('/');
-          Serial.print(dt.day(), DEC);
-          Serial.print(' ');
-          Serial.print(dt.hour(), DEC);
-          Serial.print(':');
-          Serial.print(dt.minute(), DEC);
-          Serial.print(':');
-          Serial.print(dt.second(), DEC);
-          Serial.println();
-          //DateTime dt = DateTime(current_day[0], crrent_time[0]);
+            dt = DateTime(dt_year[0], dt_month[0], dt_day[0], dt_hour[0], dt_minute[0], dt_second[0]);
 
-          /*
-          M5.Lcd.printf("%d\n", dt.unixtime());
-          M5.Lcd.println(number[0], DEC);
-          M5.Lcd.println(current_day[0]);
-          M5.Lcd.println(current_time[0]);
-          M5.Lcd.println(sun_elevation[0]);
-          M5.Lcd.println(sun_azimuth[0]);
-          */
+            Serial.print(dt.unixtime());
+            Serial.print(',');
+            Serial.print(dt.year(), DEC);
+            Serial.print('/');
+            Serial.print(dt.month(), DEC);
+            Serial.print('/');
+            Serial.print(dt.day(), DEC);
+            Serial.print(' ');
+            Serial.print(dt.hour(), DEC);
+            Serial.print(':');
+            Serial.print(dt.minute(), DEC);
+            Serial.print(':');
+            Serial.print(dt.second(), DEC);
+            Serial.println();
+            //DateTime dt = DateTime(current_day[0], crrent_time[0]);
 
-          /*
-          M5.Lcd.printf("%d\n", dt.unixtime());
-          M5.Lcd.print(current_day[0]);
-          M5.Lcd.print(" ");
-          M5.Lcd.println(current_time[0]);
-          M5.Lcd.print("Target: ");
-          M5.Lcd.println(sun_azimuth[0]);
-          */
-          
-          last_target_azimuth = target_azimuth;
-          target_azimuth = sun_azimuth[0];
-          //M5.Lcd.println(target_azimuth);
+            /*
+            M5.Lcd.printf("%d\n", dt.unixtime());
+            M5.Lcd.println(number[0], DEC);
+            M5.Lcd.println(current_day[0]);
+            M5.Lcd.println(current_time[0]);
+            M5.Lcd.println(sun_elevation[0]);
+            M5.Lcd.println(sun_azimuth[0]);
+            */
 
-          i = 0;
-          break;
+            /*
+            M5.Lcd.printf("%d\n", dt.unixtime());
+            M5.Lcd.print(current_day[0]);
+            M5.Lcd.print(" ");
+            M5.Lcd.println(current_time[0]);
+            M5.Lcd.print("Target: ");
+            M5.Lcd.println(sun_azimuth[0]);
+            */
+            
+            last_target_azimuth = target_azimuth;
+            target_azimuth = sun_azimuth[0];
+            //M5.Lcd.println(target_azimuth);
+
+            i = 0;
+            break;
+          }
         }
       }
-    }
-    else if (checkPeriod != 0 && isTurn == true) {
-      isTurn = false;
-    }
-    else {
-      // do nothing
-    }
-
-    M5.Lcd.printf("\n");
-    M5.Lcd.printf("%d\n", dt.unixtime());
-    M5.Lcd.print(current_day[0]);
-    M5.Lcd.print(" ");
-    M5.Lcd.println(current_time[0]);
-    M5.Lcd.print("Target: ");
-    //M5.Lcd.println(sun_azimuth[0]);
-    M5.Lcd.println(target_azimuth);
-    M5.Lcd.print("Current_Azimuth: ");
-    M5.Lcd.println(current_azimuth);
-    M5.Lcd.print("Sensor_Azimuth: ");
-    M5.Lcd.println(yaw);
-    
-    //if (current_azimuth < sun_azimuth[0]) {
-    if (current_azimuth < target_azimuth) {
-      work_0p75Degree();
-      current_azimuth = current_azimuth + 0.90;
-      //delay(2800);
-      //200+2800=3000ms, move 0.1 degree -> 5 minutes = 300000ms, 
-      //300000/3000 = 100 times, 0.1 deg * 100 times = 10.0 deg
-      if (current_azimuth > 360.00) {
-        current_azimuth = current_azimuth - 360.00;
+      else if (checkPeriod != 0 && isTurn == true) {
+        isTurn = false;
       }
-    }
-    else if (current_azimuth > target_azimuth && last_target_azimuth > target_azimuth && current_azimuth < target_azimuth + 360.0) {
-      // example
-      // current_azimuth = 350.00
-      // target_azimuth = 1.97
-      // last_target_azimuth = 357.59
-
-      work_0p75Degree();
-      current_azimuth = current_azimuth + 0.90;
-      if (current_azimuth > 360.00) {
-        current_azimuth = current_azimuth - 360.00;
+      else {
+        // do nothing
       }
-    }
-    else {   // current_azimuth > target_azimuth
-      //delay(3000);
-      // do nothing
+
+      M5.Lcd.printf("\n");
+      M5.Lcd.printf("%d\n", dt.unixtime());
+      M5.Lcd.print(current_day[0]);
+      M5.Lcd.print(" ");
+      M5.Lcd.println(current_time[0]);
+      M5.Lcd.print("Target: ");
+      //M5.Lcd.println(sun_azimuth[0]);
+      M5.Lcd.println(target_azimuth);
+      M5.Lcd.print("Current_Azimuth: ");
+      M5.Lcd.println(current_azimuth);
+      M5.Lcd.print("Sensor_Azimuth: ");
+      M5.Lcd.println(yaw);
+      
+      //if (current_azimuth < sun_azimuth[0]) {
+      if (current_azimuth < target_azimuth) {
+        work_0p75Degree();
+        current_azimuth = current_azimuth + 0.90;
+        //delay(2800);
+        //200+2800=3000ms, move 0.1 degree -> 5 minutes = 300000ms, 
+        //300000/3000 = 100 times, 0.1 deg * 100 times = 10.0 deg
+        if (current_azimuth > 360.00) {
+          current_azimuth = current_azimuth - 360.00;
+        }
+      }
+      else if (current_azimuth > target_azimuth && last_target_azimuth > target_azimuth && current_azimuth < target_azimuth + 360.0) {
+        // example
+        // current_azimuth = 350.00
+        // target_azimuth = 1.97
+        // last_target_azimuth = 357.59
+
+        work_0p75Degree();
+        current_azimuth = current_azimuth + 0.90;
+        if (current_azimuth > 360.00) {
+          current_azimuth = current_azimuth - 360.00;
+        }
+      }
+      else {   // current_azimuth > target_azimuth
+        //delay(3000);
+        // do nothing
+      }
     }
   }
 }
