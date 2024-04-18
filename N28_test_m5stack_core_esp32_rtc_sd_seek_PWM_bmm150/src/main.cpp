@@ -211,13 +211,27 @@ void seek_sd_card () {
   }
 }
 
+bool state_azimuth = false;
+
 void work_0p75Degree () {
   ledcWrite(pwm_channel, pwm_duty);
+  state_azimuth = true;
   //sleep(1); //100 Hz -> 100 pulse
   //delay(500); //50 pulse, OK
   //delay(100); //10 pulse, not work
   delay(200); //20 pulse
   ledcWrite(pwm_channel, 0);
+  state_azimuth = false;
+}
+
+void work_azimuth_run () {
+  ledcWrite(pwm_channel, pwm_duty);
+  state_azimuth = true;
+}
+
+void work_azimuth_stop () {
+  ledcWrite(pwm_channel, 0);
+  state_azimuth = false;
 }
 
 void setup () {
@@ -547,8 +561,15 @@ void loop () {
   }
   if (M5.BtnC.wasPressed()) {
     M5.Lcd.println("Button C was pressed");
+    if (state_azimuth == false) {
+      work_azimuth_run();
+    }
+    else {
+      work_azimuth_stop();
+    }
     //current_azimuth = 0.00;
     //M5.Lcd.println("Reset azimuth to 0.00");
+    /*
     M5.Lcd.fillScreen(BLACK);
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextSize(1);
@@ -567,6 +588,7 @@ void loop () {
     M5.Lcd.fillScreen(BLACK);
     M5.Lcd.setTextColor(GREEN, BLACK);
     M5.Lcd.setTextSize(2);
+    */
   }
 
   deltat = ((currentTime - lastAzimuthUpdate) / 1000000.0f);
@@ -758,7 +780,6 @@ void loop () {
       //300000/3000 = 100 times, 0.1 deg * 100 times = 10.0 deg
     }
   }
-
 }
 
 
