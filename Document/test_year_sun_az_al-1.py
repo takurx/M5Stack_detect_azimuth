@@ -11,16 +11,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # >>> input lattitude and longitude
-#koko = EarthLocation(lat='35 40 30.78',lon='139 32 17.1')
-ido = '35 40 30.78'
-keido = '139 32 17.1'
+#koko = EarthLocation(lat='35 40 30.78',lon='139 32 17.1'), Tsukuba
+#ido = '35 40 30.78'
+#keido = '139 32 17.1'
+# 34.55898169033403, 135.50673654060122, Osaka
+ido = 34.55898169033403
+keido = 135.50673654060122
 koko = EarthLocation(lat=ido, lon=keido)
 #print(koko.geodetic)
 
 # >>> input start time and time difference from GMT
 #toki = astropy.time.Time('2019-5-16') - 9*u.hour
 #toki = astropy.time.Time('2023-8-06') - 9*u.hour
-nenngappi = '2023-10-01'
+nenngappi = '2024-04-15'
 toki = astropy.time.Time(nenngappi) - 9*u.hour
 
 for i in range(365):

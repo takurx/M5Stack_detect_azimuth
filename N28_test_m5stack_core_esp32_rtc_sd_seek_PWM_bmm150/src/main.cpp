@@ -304,7 +304,7 @@ void setup () {
   // This line sets the RTC with an explicit date & time, for example to set
   // January 21, 2014 at 3am you would call:
   // set UTC time,readData
-  //rtc.adjust(DateTime(2024, 4, 25, 2, 47, 0));
+  //rtc.adjust(DateTime(2024, 4, 19, 2, 0, 0));
 
   // When the RTC was stopped and stays connected to the battery, it has
   // to be restarted by clearing the STOP bit. Let's do this to ensure
@@ -388,7 +388,8 @@ void setup () {
   //float target_azimuth = *sun_azimuth;
   target_azimuth = *sun_azimuth;
   current_azimuth = target_azimuth;
-  int init_azimuth_count = int(target_azimuth) / 100; // 0-360.00 / 100 = 0-3
+  //int init_azimuth_count = int(target_azimuth) / 100; // 0-360.00 / 100 = 0-3
+  int init_azimuth_count = 0;
   Serial.print(target_azimuth);
   Serial.print(", ");
   Serial.println(init_azimuth_count);
