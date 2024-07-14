@@ -16,122 +16,97 @@ https://registry.platformio.org/libraries/adafruit/RTClib/installation
 #include <Arduino.h>
 #include <M5Stack.h>
 #include <RTClib.h>
-#include <TinyGPSPlus.h>
-//#include <SoftwareSerial.h>
 #include <HardwareSerial.h>
+//#include <SoftwareSerial.h>
+#include <DFRobot_GNSS.h>
 
 RTC_PCF8563 rtc;
 
-// The TinyGPSPlus object
-TinyGPSPlus gps;
+//DFRobot_GNSS_UART gnss(&Serial2 ,9600);
+//DFRobot_GNSS_UART gnss(&Serial2 ,9600, 16, 17);
+  // RX io02
+  // TX io05
+
+//SoftwareSerial mySerial(2, 5);
+uint16_t GPSBaud = 9600;
+uint8_t gps_rx = 16;
+uint8_t gps_tx = 17;
+//DFRobot_GNSS_UART gnss(&mySerial, GPSBaud, gps_rx, gps_tx);
+//DFRobot_GNSS_UART gnss(&mySerial, GPSBaud);
+//DFRobot_GNSS_UART gnss(&mySerial, uint16_t(9600));
+//DFRobot_GNSS_UART gnss(&mySerial, 9600, 2, 5);
+//DFRobot_GNSS_UART gnss(&Serial2, 9600, 16, 17);
+DFRobot_GNSS_UART gnss(&Serial2, GPSBaud, gps_rx, gps_tx);
 
 char timeStrbuff[64];
 
-/*
-   This sample sketch demonstrates the normal use of a TinyGPSPlus (TinyGPSPlus) object.
-   It requires the use of SoftwareSerial, and assumes that you have a
-   4800-baud serial GPS device hooked up on pins 4(rx) and 3(tx).
- */
-//static const int RXPin = 4, TXPin = 3;
-static const uint32_t GPSBaud = 9600;
-
-// The serial connection to the GPS device
-//SoftwareSerial ss(RXPin, TXPin);
-
-void displayInfo() {
-	Serial.print(F("Location: ")); 
-	if (gps.location.isValid()) {
-		Serial.print(gps.location.lat(), 6);
-		Serial.print(F(","));
-		Serial.print(gps.location.lng(), 6);
-	} else {
-		Serial.print(F("INVALID"));
-	}
-
-	Serial.print(F("  Date/Time: "));
-	if (gps.date.isValid()) {
-		Serial.print(gps.date.month());
-		Serial.print(F("/"));
-		Serial.print(gps.date.day());
-		Serial.print(F("/"));
-		Serial.print(gps.date.year());
-	} else {
-		Serial.print(F("INVALID"));
-	}
-
-	Serial.print(F(" "));
-	if (gps.time.isValid()) {
-		if (gps.time.hour() < 10) Serial.print(F("0"));
-		Serial.print(gps.time.hour());
-		Serial.print(F(":"));
-		if (gps.time.minute() < 10) Serial.print(F("0"));
-		Serial.print(gps.time.minute());
-		Serial.print(F(":"));
-		if (gps.time.second() < 10) Serial.print(F("0"));
-		Serial.print(gps.time.second());
-		Serial.print(F("."));
-		if (gps.time.centisecond() < 10) Serial.print(F("0"));
-		Serial.print(gps.time.centisecond());
-	} else {
-		Serial.print(F("INVALID"));
-	}
-
-	Serial.println();
-}
-
 void setup () {
-  M5.begin();
-  M5.Power.begin();
+    M5.begin();
+    M5.Power.begin();
 
-  //delay(1000);
-  M5.Lcd.setTextSize(2);  // Set the text size.
+    //delay(1000);
+    M5.Lcd.setTextSize(2);  // Set the text size.
 
-  Serial.begin(115200);
+    Serial.begin(115200);
 
-  Serial2.begin(GPSBaud);
+    //Serial2.begin(9600, SERIAL_8N1, 16, 17);
 
-	Serial.println(F("DeviceExample.ino"));
-	Serial.println(F("A simple demonstration of TinyGPSPlus with an attached GPS module"));
-	Serial.print(F("Testing TinyGPSPlus library v. ")); Serial.println(TinyGPSPlus::libraryVersion());
-	Serial.println(F("by Mikal Hart"));
-	Serial.println();
+    //Serial2.begin(GPSBaud);
 
-#ifndef ESP8266
-  while (!Serial); // wait for serial port to connect. Needed for native USB
-#endif
+    while(!gnss.begin()){
+      Serial.println("NO Deivces !");
+      delay(1000);
+    }
 
-  if (! rtc.begin()) {
-    Serial.println("Couldn't find RTC");
-    Serial.flush();
-    while (1) delay(10);
-  }
+    gnss.enablePower();      // Enable gnss power 
 
-  if (rtc.lostPower()) {
-    Serial.println("RTC is NOT initialized, let's set the time!");
-    // When time needs to be set on a new device, or after a power loss, the
+    /** Set GNSS to be used 
+     *   eGPS              use gps
+     *   eBeiDou           use beidou
+     *   eGPS_BeiDou       use gps + beidou
+     *   eGLONASS          use glonass
+     *   eGPS_GLONASS      use gps + glonass
+     *   eBeiDou_GLONASS   use beidou +glonass
+     *   eGPS_BeiDou_GLONASS use gps + beidou + glonass
+     */
+    gnss.setGnss(eGPS_BeiDou_GLONASS);
+
+    // gnss.setRgbOff();
+    gnss.setRgbOn();
+    // gnss.disablePower();      // Disable GNSS, the data will not be refreshed after disabling 
+
+    if (! rtc.begin()) {
+      Serial.println("Couldn't find RTC");
+      Serial.flush();
+      while (1) delay(10);
+    }
+
+    if (rtc.lostPower()) {
+        Serial.println("RTC is NOT initialized, let's set the time!");
+        // When time needs to be set on a new device, or after a power loss, the
+        // following line sets the RTC to the date & time this sketch was compiled
+        rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+        // This line sets the RTC with an explicit date & time, for example to set
+        // January 21, 2014 at 3am you would call:
+        // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+        //
+        // Note: allow 2 seconds after inserting battery or applying external power
+        // without battery before calling adjust(). This gives the PCF8523's
+        // crystal oscillator time to stabilize. If you call adjust() very quickly
+        // after the RTC is powered, lostPower() may still return true.
+    }
+
+    // When time needs to be re-set on a previously configured device, the
     // following line sets the RTC to the date & time this sketch was compiled
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
     // This line sets the RTC with an explicit date & time, for example to set
     // January 21, 2014 at 3am you would call:
     // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
-    //
-    // Note: allow 2 seconds after inserting battery or applying external power
-    // without battery before calling adjust(). This gives the PCF8523's
-    // crystal oscillator time to stabilize. If you call adjust() very quickly
-    // after the RTC is powered, lostPower() may still return true.
-  }
 
-  // When time needs to be re-set on a previously configured device, the
-  // following line sets the RTC to the date & time this sketch was compiled
-  // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  // This line sets the RTC with an explicit date & time, for example to set
-  // January 21, 2014 at 3am you would call:
-  // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
-
-  // When the RTC was stopped and stays connected to the battery, it has
-  // to be restarted by clearing the STOP bit. Let's do this to ensure
-  // the RTC is running.
-  rtc.start();
+    // When the RTC was stopped and stays connected to the battery, it has
+    // to be restarted by clearing the STOP bit. Let's do this to ensure
+    // the RTC is running.
+    rtc.start();
 }
 
 void loop () {
@@ -183,18 +158,50 @@ void loop () {
     Serial.print(future.second(), DEC);
     Serial.println();
 
-    // This sketch displays information every time a new sentence is correctly encoded.
-    //while (ss.available() > 0) {
-    while (Serial2.available() > 0) {
-      //if (gps.encode(ss.read())) {
-      if (gps.encode(Serial2.read())) {
-        displayInfo();
-      }
-    }
+    sTim_t utc = gnss.getUTC();
+    sTim_t date = gnss.getDate();
+    sLonLat_t lat = gnss.getLat();
+    sLonLat_t lon = gnss.getLon();
+    double high = gnss.getAlt();
+    uint8_t starUserd = gnss.getNumSatUsed();
+    double sog = gnss.getSog();
+    double cog = gnss.getCog();
 
-    if (millis() > 5000 && gps.charsProcessed() < 10) {
-      Serial.println(F("No GPS detected: check wiring."));
-    }
+    Serial.println("");
+    Serial.print(date.year);
+    Serial.print("/");
+    Serial.print(date.month);
+    Serial.print("/");
+    Serial.print(date.date);
+    Serial.print("/");
+    Serial.print(utc.hour);
+    Serial.print(":");
+    Serial.print(utc.minute);
+    Serial.print(":");
+    Serial.print(utc.second);
+    Serial.println();
+    Serial.println((char)lat.latDirection);
+    Serial.println((char)lon.lonDirection);
+    
+    // Serial.print("lat DDMM.MMMMM = ");
+    // Serial.println(lat.latitude, 5);
+    // Serial.print(" lon DDDMM.MMMMM = ");
+    // Serial.println(lon.lonitude, 5);
+    Serial.print("lat degree = ");
+    Serial.println(lat.latitudeDegree,6);
+    Serial.print("lon degree = ");
+    Serial.println(lon.lonitudeDegree,6);
+
+    Serial.print("star userd = ");
+    Serial.println(starUserd);
+    Serial.print("alt high = ");
+    Serial.println(high);
+    Serial.print("sog =  ");
+    Serial.println(sog);
+    Serial.print("cog = ");
+    Serial.println(cog);
+    Serial.print("gnss mode =  ");
+    Serial.println(gnss.getGnssMode());
 
     Serial.println();
     delay(3000);
