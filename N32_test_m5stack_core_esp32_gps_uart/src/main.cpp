@@ -30,6 +30,8 @@ void setup() {
   Serial2.begin(9600);
 }
 
+
+
 void loop() {
   //delay(1000);
   //Serial.println("Hello World on Serial, loop");
@@ -50,6 +52,8 @@ void loop() {
   }
   delay(1000);
 }
+
+
 
 void displayInfo()
 {
@@ -158,3 +162,5 @@ void m5lcd_displayInfo()
 
   M5.Lcd.println();
 }
+
+
