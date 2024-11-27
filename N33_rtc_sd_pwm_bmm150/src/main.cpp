@@ -17,14 +17,20 @@ https://registry.platformio.org/libraries/adafruit/RTClib/installation
 #include <Arduino.h>
 #include <M5Stack.h>
 
+// RTC
 #include <RTClib.h>
 
-#include "CSV_Parser.h"
-
+// MPU6886+BMM150
 #define M5STACK_MPU6886
-#define LCD
 #include "BMM150class.h"
 #include <utility/quaternionFilters.h>
+//#define DISPLAY_AHRS
+//#define DISPLAY_RAW
+
+// Other
+#include "CSV_Parser.h"
+
+#define LCD
 
 
 
@@ -32,32 +38,10 @@ https://registry.platformio.org/libraries/adafruit/RTClib/installation
  * *globala variable
 *****************************************/ 
 
-//#define DISPLAY_AHRS
-
-uint8_t PIN_PWM_OUT = 5;
-uint8_t pwm_channel = 0;
-uint8_t pwm_duty = 16; // 50% = 128/256 = 128/2^8, pwm_resolution = 8
-
-float current_azimuth; // 0.00 is North, 90.00 is East, 180.00 is South, 270.00 is West
-float target_azimuth;
-float last_target_azimuth;
-
+// RTC
 RTC_PCF8563 rtc;
 
-char timeStrbuff[64];
-
-//uint8_t periodWorkMinute = 5;
-const int periodWorkMinute = 5;
-bool isTurn;
-
-char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
-DateTime ct;
-DateTime dataTime;
-
-File myFile;
-
-//#define DISPLAY_RAW
-//#define DISPLAY_AHRS
+// MPU6886+BMM150
 float accX = 0.0F;
 float accY = 0.0F;
 float accZ = 0.0F;
@@ -92,6 +76,26 @@ float yaw = 0.0F;
 float temp = 0.0F;
 
 BMM150class bmm150;
+
+// Other
+uint8_t PIN_PWM_OUT = 5;
+uint8_t pwm_channel = 0;
+uint8_t pwm_duty = 16; // 50% = 128/256 = 128/2^8, pwm_resolution = 8
+
+float current_azimuth; // 0.00 is North, 90.00 is East, 180.00 is South, 270.00 is West
+float target_azimuth;
+float last_target_azimuth;
+
+char timeStrbuff[64];
+
+const int periodWorkMinute = 5;
+bool isTurn;
+
+char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
+DateTime ct;
+DateTime dataTime;
+
+File myFile;
 
 uint32_t currentTime = 0;
 uint32_t lastUpdate = 0, firstUpdate = 0;
@@ -159,22 +163,17 @@ void setup () {
   ledcAttachPin(PIN_PWM_OUT, pwm_channel);
   //ledcWrite(pwm_channel, pwm_duty);
 
+  // MPU6886+BMM150
   M5.IMU.Init();
   initGyro();
   bmm150.Init();
-
   bmm150.getMagnetOffset(&magoffsetX, &magoffsetY, &magoffsetZ);
   bmm150.getMagnetScale(&magscaleX, &magscaleY, &magscaleZ);
 
-  //delay(1000);
   M5.Lcd.setTextSize(2);  // Set the text size.
-
   Serial.begin(115200);
 
-#ifndef ESP8266
-  while (!Serial); // wait for serial port to connect. Needed for native USB
-#endif
-
+  // RTC
   if (! rtc.begin()) {
     Serial.println("Couldn't find RTC");
     Serial.flush();
@@ -358,14 +357,19 @@ void setup () {
 *****************************************/ 
 
 void loop () {
+  // MPU6886+BMM150
   float magnetX1, magnetY1, magnetZ1;
+  // RTC
   DateTime now = rtc.now();
   DateTime dt;
+  // Other
   int i;
   int readData_loop;
 
   // put your main code here, to run repeatedly:
   M5.update();
+
+  // MPU6886+BMM150
   M5.IMU.getGyroData(&gyroX, &gyroY, &gyroZ);
   gyroX -= init_gyroX;
   gyroY -= init_gyroY;
@@ -407,7 +411,6 @@ void loop () {
   M5.Lcd.setCursor(0, 155);
   M5.Lcd.printf("Temperature : %.2f C", temp);
 #endif
-
 
   yaw = atan2(2.0f * (*(getQ() + 1) * *(getQ() + 2) + *getQ() *
                                                           *(getQ() + 3)),
@@ -738,6 +741,7 @@ void initGyro() {
   M5.Lcd.setCursor(0, 0);
   M5.Lcd.print("begin gyro calibration");
 
+  // MPU6886+BMM150
   for (int i = 0;i < AVERAGENUM_GY;i++) {
     M5.IMU.getGyroData(&gyroX,&gyroY,&gyroZ);
     init_gyroX += gyroX;
