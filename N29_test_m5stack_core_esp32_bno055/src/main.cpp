@@ -7,6 +7,9 @@ https://nouka-it.hatenablog.com/entry/2022/02/27/133549
 https://registry.platformio.org/libraries/m5stack/M5Stack/installation
 */
 
+#include <Arduino.h>
+#include <M5Stack.h>
+
 #include <Wire.h>
 #include <Adafruit_BNO055.h>
 #include <Ticker.h>
@@ -20,6 +23,9 @@ void get_bno055_data(void);
 
 void setup(void)
 {
+  M5.begin();
+  M5.Power.begin();
+
   pinMode(21, INPUT_PULLUP); //SDA 21番ピンのプルアップ(念のため)
   pinMode(22, INPUT_PULLUP); //SDA 22番ピンのプルアップ(念のため)
 
@@ -44,7 +50,10 @@ void setup(void)
   bno.setExtCrystalUse(false);
 
   Serial.println("Calibration status values: 0=uncalibrated, 3=fully calibrated");
+    
   bno055ticker.attach_ms(BNO055interval, get_bno055_data);
+
+  M5.Lcd.setTextSize(2);
 }
 
 void get_bno055_data(void)
@@ -57,6 +66,8 @@ void get_bno055_data(void)
   // - VECTOR_LINEARACCEL   - m/s^2
   // - VECTOR_GRAVITY       - m/s^2
   
+  M5.Lcd.clear();
+  M5.Lcd.setCursor(0, 0);
   
   // キャリブレーションのステータスの取得と表示
   uint8_t system, gyro, accel, mag = 0;
@@ -70,6 +81,14 @@ void get_bno055_data(void)
   Serial.print(", Mg");
   Serial.print(mag, DEC);
   
+  M5.Lcd.print("CALIB Sys:");
+  M5.Lcd.print(system, DEC);
+  M5.Lcd.print(", Gy");
+  M5.Lcd.print(gyro, DEC);
+  M5.Lcd.print(", Ac");
+  M5.Lcd.print(accel, DEC);
+  M5.Lcd.print(", Mg");
+  M5.Lcd.println(mag, DEC);
   
   /*
   // ジャイロセンサ値の取得と表示
@@ -112,6 +131,13 @@ void get_bno055_data(void)
   Serial.print(euler.y());
   Serial.print(", ");
   Serial.print(euler.z());
+
+  M5.Lcd.print("DIR_xyz:");
+  M5.Lcd.print(euler.x());
+  M5.Lcd.print(", ");
+  M5.Lcd.print(euler.y());
+  M5.Lcd.print(", ");
+  M5.Lcd.println(euler.z());
 
   /*
     // センサフュージョンの方向推定値のクオータニオン
