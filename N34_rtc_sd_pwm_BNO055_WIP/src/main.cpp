@@ -91,11 +91,17 @@ BMM150class bmm150;
 */
 
 // BNO055
-uint8_t STATUS_SYSTEM, STATUS_GYRO, STATUS_ACCEL, STAUS_MAG = 0;
+uint8_t STATUS_SYSTEM, STATUS_GYRO, STATUS_ACCEL, STATUS_MAG = 0;
 float YAW = 0.0F;
 float PITCH = 0.0F;
 float ROLL = 0.0F;
 uint8_t TEMPERATURE = 0;
+
+enum MODE {
+  MANUAL,
+  AUTO
+};
+uint8_t current_mode = MANUAL;
 
 // Other
 uint8_t PIN_PWM_OUT = 5;
@@ -515,15 +521,22 @@ void loop () {
   if (M5.BtnA.wasPressed()) {
     M5.Lcd.println("Button A was pressed");
     // Function: Reset current azimuth, 太陽に合わせたと仮定して、現在角度をtarget_azimuthにリセットする
+    // Function: set Manual mode, 手動モードに設定する
     current_azimuth = target_azimuth;
-    M5.Lcd.println("Reset azimuth to target azimuth");
+    M5.Lcd.println("Reset current azimuth to target azimuth");
+    current_mode = MANUAL;
+    M5.Lcd.println("Set Manual mode");
   }
   if (M5.BtnB.wasPressed()) {
     M5.Lcd.println("Button B was pressed");
     // Function: Reset current azimuth, IMUセンサが正しいと仮定して、現在角度をIMUセンサのazimuth(YAW)にリセットする
+    // Function: set Auto mode, 自動モードに設定する
     //current_azimuth = 180.00;
     //M5.Lcd.println("Reset azimuth to 180.00");
     current_azimuth = YAW;
+    M5.Lcd.println("Reset current azimuth to sensor azimuth");
+    current_mode = AUTO;
+    M5.Lcd.println("Set Auto mode");
 
     /*
     // target_azimuthに向けて駆動する
@@ -621,6 +634,14 @@ void loop () {
       Serial.print(checkPeriod);
 
       Serial.println();
+
+      if (current_mode == AUTO)
+      {
+        if (STATUS_SYSTEM == 3 && STATUS_MAG > 1)
+        {
+          current_azimuth = YAW;
+        }
+      }
 
       // checkPeriodで5分ごと、かつ、isTurnがfalseの場合のみ
       //if (now.minute()%periodWorkMinute == 0 && isTurn == false)
@@ -757,9 +778,16 @@ void loop () {
       M5.Lcd.print("Sensor_Status_sys (=3): ");
       M5.Lcd.println(STATUS_SYSTEM);
       M5.Lcd.print("Sensor_Status_Mag (<1): ");
-      M5.Lcd.println(STAUS_MAG);
+      M5.Lcd.println(STATUS_MAG);
       M5.Lcd.print("Sensor_Azimuth: ");
       M5.Lcd.println(YAW);
+      M5.Lcd.print("Current_Mode: ");
+      if (current_mode == MANUAL) {
+        M5.Lcd.println("Manual");
+      }
+      else {
+        M5.Lcd.println("Auto");
+      }
       
       // 現在角度が目標角度よりも小さい場合、目標角度に向けて駆動する
       //if (current_azimuth < sun_azimuth[0]) {
@@ -950,7 +978,7 @@ void get_bno055_data(void)
   //uint8_t system, gyro, accel, mag = 0;
   //uint8_t STATUS_SYSTEM, STATUS_GYRO, STATUS_ACCEL, STAUS_MAG = 0;
   //bno.getCalibration(&system, &gyro, &accel, &mag);
-  bno.getCalibration(&STATUS_SYSTEM, &STATUS_GYRO, &STATUS_ACCEL, &STAUS_MAG);
+  bno.getCalibration(&STATUS_SYSTEM, &STATUS_GYRO, &STATUS_ACCEL, &STATUS_MAG);
   /*
   Serial.print("CALIB Sys:");
   Serial.print(system, DEC);
