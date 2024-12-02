@@ -99,7 +99,7 @@ uint8_t TEMPERATURE = 0;
 
 enum MODE {
   MANUAL,
-  AUTO
+  SENSOR
 };
 uint8_t current_mode = MANUAL;
 
@@ -199,6 +199,7 @@ void setup () {
   ledcSetup(pwm_channel, pwm_frequency, pwm_resolution);
   ledcAttachPin(PIN_PWM_OUT, pwm_channel);
   //ledcWrite(pwm_channel, pwm_duty);
+  ledcWrite(pwm_channel, 0);
 
   // MPU6886+BMM150
   /*
@@ -530,13 +531,13 @@ void loop () {
   if (M5.BtnB.wasPressed()) {
     M5.Lcd.println("Button B was pressed");
     // Function: Reset current azimuth, IMUセンサが正しいと仮定して、現在角度をIMUセンサのazimuth(YAW)にリセットする
-    // Function: set Auto mode, 自動モードに設定する
+    // Function: set SENSOR mode, 自動モードに設定する
     //current_azimuth = 180.00;
     //M5.Lcd.println("Reset azimuth to 180.00");
     current_azimuth = YAW;
     M5.Lcd.println("Reset current azimuth to sensor azimuth");
-    current_mode = AUTO;
-    M5.Lcd.println("Set Auto mode");
+    current_mode = SENSOR;
+    M5.Lcd.println("Set SENSOR mode");
 
     /*
     // target_azimuthに向けて駆動する
@@ -635,7 +636,7 @@ void loop () {
 
       Serial.println();
 
-      if (current_mode == AUTO)
+      if (current_mode == SENSOR)
       {
         if (STATUS_SYSTEM == 3 && STATUS_MAG > 1)
         {
@@ -786,7 +787,7 @@ void loop () {
         M5.Lcd.println("Manual");
       }
       else {
-        M5.Lcd.println("Auto");
+        M5.Lcd.println("SENSOR");
       }
       
       // 現在角度が目標角度よりも小さい場合、目標角度に向けて駆動する
