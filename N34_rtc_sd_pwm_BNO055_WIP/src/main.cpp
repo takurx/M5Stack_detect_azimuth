@@ -21,9 +21,11 @@ https://registry.platformio.org/libraries/adafruit/RTClib/installation
 #include <RTClib.h>
 
 // MPU6886+BMM150
+/*
 #define M5STACK_MPU6886
 #include "BMM150class.h"
 #include <utility/quaternionFilters.h>
+*/
 //#define DISPLAY_AHRS
 //#define DISPLAY_RAW
 
@@ -51,6 +53,7 @@ Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 RTC_PCF8563 rtc;
 
 // MPU6886+BMM150
+/*
 float accX = 0.0F;
 float accY = 0.0F;
 float accZ = 0.0F;
@@ -78,20 +81,32 @@ float magscaleX = 0.0F;
 float magscaleY = 0.0F;
 float magscaleZ = 0.0F;
 
+float temp = 0.0F;
+
 float pitch = 0.0F;
 float roll = 0.0F;
 float yaw = 0.0F;
 
-float temp = 0.0F;
-
 BMM150class bmm150;
+*/
+
+// BNO055
+uint8_t STATUS_SYSTEM, STATUS_GYRO, STATUS_ACCEL, STAUS_MAG = 0;
+float YAW = 0.0F;
+float PITCH = 0.0F;
+float ROLL = 0.0F;
+uint8_t TEMPERATURE = 0;
 
 // Other
 uint8_t PIN_PWM_OUT = 5;
 uint8_t pwm_channel = 0;
 uint8_t pwm_duty = 16; // 50% = 128/256 = 128/2^8, pwm_resolution = 8
 
-float current_azimuth; // 0.00 is North, 90.00 is East, 180.00 is South, 270.00 is West
+
+// MPU6886+BMM150, YAW,  0.00 is North, 90.00 is East, 180.00 is South, 270.00 is West
+// BNO055, Euler angle, YAW, 270.00 is North, 00.00 is East, 90.00 is South, 180.00 is West
+// -> 0.00 is North, 90.00 is East, 180.00 is South, 270.00 is West
+float current_azimuth;
 float target_azimuth;
 float last_target_azimuth;
 
@@ -148,7 +163,9 @@ bool state_azimuth = false;
 *****************************************/ 
 
 // MPU6886+BMM150
+/*
 void initGyro();
+*/
 // BNO055
 void get_bno055_data(void);
 
@@ -177,11 +194,13 @@ void setup () {
   //ledcWrite(pwm_channel, pwm_duty);
 
   // MPU6886+BMM150
+  /*
   M5.IMU.Init();
   initGyro();
   bmm150.Init();
   bmm150.getMagnetOffset(&magoffsetX, &magoffsetY, &magoffsetZ);
   bmm150.getMagnetScale(&magscaleX, &magscaleY, &magscaleZ);
+  */
 
   // BNO055
   pinMode(21, INPUT_PULLUP); //SDA 21番ピンのプルアップ(念のため)
@@ -199,9 +218,9 @@ void setup () {
   delay(1000);
 
   /* Display the current temperature */
-  int8_t temp = bno.getTemp();
+  TEMPERATURE = bno.getTemp();
   Serial.print("Current Temperature: ");
-  Serial.print(temp);
+  Serial.print(TEMPERATURE);
   Serial.println(" C");
   Serial.println("");
 
@@ -398,7 +417,9 @@ void setup () {
 
 void loop () {
   // MPU6886+BMM150
+  /*
   float magnetX1, magnetY1, magnetZ1;
+  */
   // RTC
   DateTime now = rtc.now();
   DateTime dt;
@@ -410,6 +431,7 @@ void loop () {
   M5.update();
 
   // MPU6886+BMM150
+  /*
   M5.IMU.getGyroData(&gyroX, &gyroY, &gyroZ);
   gyroX -= init_gyroX;
   gyroY -= init_gyroY;
@@ -428,13 +450,17 @@ void loop () {
   if(head_dir > 2*M_PI)
     head_dir -= 2*M_PI;
   head_dir *= RAD_TO_DEG;
+  */
 
   currentTime = micros();
   deltat = ((currentTime - lastUpdate) / 1000000.0f);
   lastUpdate = currentTime;
 
+  /*
   MadgwickQuaternionUpdate(accX, accY, accZ, gyroX * DEG_TO_RAD, gyroY * DEG_TO_RAD, gyroZ * DEG_TO_RAD, -magnetX1, magnetY1, -magnetZ1, deltat);
+  */
 
+/*
 #ifdef DISPLAY_RAW
   M5.Lcd.setCursor(0, 20);
   M5.Lcd.printf("%6.2f  %6.2f  %6.2f      ", gyroX, gyroY, gyroZ);
@@ -451,7 +477,9 @@ void loop () {
   M5.Lcd.setCursor(0, 155);
   M5.Lcd.printf("Temperature : %.2f C", temp);
 #endif
+*/
 
+  /*
   yaw = atan2(2.0f * (*(getQ() + 1) * *(getQ() + 2) + *getQ() *
                                                           *(getQ() + 3)),
               *getQ() * *getQ() + *(getQ() + 1) * *(getQ() + 1) - *(getQ() + 2) * *(getQ() + 2) - *(getQ() + 3) * *(getQ() + 3));
@@ -472,12 +500,16 @@ void loop () {
   // 	8° 30' E  ± 0° 21' (or 8.5°) on 2016-07-19
   // - http://www.ngdc.noaa.gov/geomag-web/#declination
   //  yaw -= 8.5;
+  */
+
+/*
 #ifdef DISPLAY_AHRS
   M5.Lcd.clear();
   M5.Lcd.setCursor(0, 0);
   //M5.Lcd.setCursor(0, 100);
   M5.Lcd.printf("  yaw: % 5.2f    pitch: % 5.2f    roll: % 5.2f   \r\n", (yaw), (pitch), (roll));
 #endif
+*/
 
   if (M5.BtnA.wasPressed()) {
     M5.Lcd.println("Button A was pressed");
@@ -490,13 +522,13 @@ void loop () {
     M5.Lcd.println("Button B was pressed");
     //current_azimuth = 180.00;
     //M5.Lcd.println("Reset azimuth to 180.00");
-    if (sun_azimuth[0] > yaw)
+    if (sun_azimuth[0] > YAW)
     {
-      current_azimuth = yaw;
+      current_azimuth = YAW;
     }
     else
     {
-      current_azimuth = yaw - 360.0;
+      current_azimuth = YAW - 360.0;
     }
 
     while(1)
@@ -735,8 +767,12 @@ void loop () {
       M5.Lcd.println(target_azimuth);
       M5.Lcd.print("Current_Azimuth: ");
       M5.Lcd.println(current_azimuth);
+      M5.Lcd.print("Sensor_Status_sys (=3): ");
+      M5.Lcd.println(STATUS_SYSTEM);
+      M5.Lcd.print("Sensor_Status_Mag (<1): ");
+      M5.Lcd.println(STAUS_MAG);
       M5.Lcd.print("Sensor_Azimuth: ");
-      M5.Lcd.println(yaw);
+      M5.Lcd.println(YAW);
       
       //if (current_azimuth < sun_azimuth[0]) {
       if (current_azimuth < target_azimuth) {
@@ -774,6 +810,7 @@ void loop () {
 /****************************************
  * *Function 
 *****************************************/ 
+/*
 void initGyro() {
   M5.Lcd.fillScreen(BLACK);
   M5.Lcd.setTextColor(WHITE);
@@ -793,6 +830,7 @@ void initGyro() {
   init_gyroY /= AVERAGENUM_GY;
   init_gyroZ /= AVERAGENUM_GY;
 }
+*/
 
 void seek_sd_card () {
   //char csv_str[] = "000 2023-00-00 00:00:00 -00.00000000000000 000.000000000000000\n"; 
@@ -901,8 +939,11 @@ void get_bno055_data(void)
   
   
   // キャリブレーションのステータスの取得と表示
-  uint8_t system, gyro, accel, mag = 0;
-  bno.getCalibration(&system, &gyro, &accel, &mag);
+  //uint8_t system, gyro, accel, mag = 0;
+  //uint8_t STATUS_SYSTEM, STATUS_GYRO, STATUS_ACCEL, STAUS_MAG = 0;
+  //bno.getCalibration(&system, &gyro, &accel, &mag);
+  bno.getCalibration(&STATUS_SYSTEM, &STATUS_GYRO, &STATUS_ACCEL, &STAUS_MAG);
+  /*
   Serial.print("CALIB Sys:");
   Serial.print(system, DEC);
   Serial.print(", Gy");
@@ -911,8 +952,8 @@ void get_bno055_data(void)
   Serial.print(accel, DEC);
   Serial.print(", Mg");
   Serial.print(mag, DEC);
-  
-  
+  */
+
   /*
   // ジャイロセンサ値の取得と表示
   imu::Vector<3> gyroscope = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
@@ -948,12 +989,24 @@ void get_bno055_data(void)
 
   // センサフュージョンによる方向推定値の取得と表示
   imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+  YAW = euler.x();
+  // MPU6886+BMM150, YAW,  0.00 is North, 90.00 is East, 180.00 is South, 270.00 is West
+  // BNO055, Euler angle, YAW, 270.00 is North, 00.00 is East, 90.00 is South, 180.00 is West
+  // -> 0.00 is North, 90.00 is East, 180.00 is South, 270.00 is West
+  YAW = YAW + 90.0;
+  if (YAW > 360.0) {
+    YAW = YAW - 360.0;
+  }
+  PITCH = euler.y();
+  ROLL = euler.z();
+  /*
   Serial.print(" 　DIR_xyz:");
   Serial.print(euler.x());
   Serial.print(", ");
   Serial.print(euler.y());
   Serial.print(", ");
   Serial.print(euler.z());
+  */
 
   /*
     // センサフュージョンの方向推定値のクオータニオン
@@ -969,5 +1022,5 @@ void get_bno055_data(void)
     Serial.print("\t\t");
   */
 
-  Serial.println();
+  //Serial.println();
 }
