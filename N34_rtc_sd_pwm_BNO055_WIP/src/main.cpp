@@ -154,7 +154,8 @@ uint8_t *dt_hour;
 uint8_t *dt_minute;
 uint8_t *dt_second;
 
-bool state_azimuth = false;
+// state_calibration_azimuth: azimuth調整状態フラグ、モーター稼動状態
+bool state_calibration_azimuth = false;
 
 
 
@@ -513,38 +514,43 @@ void loop () {
 
   if (M5.BtnA.wasPressed()) {
     M5.Lcd.println("Button A was pressed");
-    //current_azimuth = 90.00;
-    //M5.Lcd.println("Reset azimuth to 90.00");
+    // Function: Reset current azimuth, 太陽に合わせたと仮定して、現在角度をtarget_azimuthにリセットする
     current_azimuth = target_azimuth;
     M5.Lcd.println("Reset azimuth to target azimuth");
   }
   if (M5.BtnB.wasPressed()) {
     M5.Lcd.println("Button B was pressed");
+    // Function: Reset current azimuth, IMUセンサが正しいと仮定して、現在角度をIMUセンサのazimuth(YAW)にリセットする
     //current_azimuth = 180.00;
     //M5.Lcd.println("Reset azimuth to 180.00");
-    if (sun_azimuth[0] > YAW)
+    current_azimuth = YAW;
+
+    /*
+    // target_azimuthに向けて駆動する
+    if (target_azimuth > current_azimuth)
     {
-      current_azimuth = YAW;
+      //current_azimuth = YAW;
+      //None
     }
-    else
+    else  // target_azimuth < current_azimuth
     {
       current_azimuth = YAW - 360.0;
     }
 
     while(1)
     {
-      if (current_azimuth > sun_azimuth[0]) {
+      if (current_azimuth > target_azimuth) {
         break;
       }
       else {
-        Serial.print(sun_azimuth[0]);
+        Serial.print(target_azimuth);
         Serial.print(", ");
         Serial.println(current_azimuth);
 
         M5.Lcd.clear();
         M5.Lcd.setCursor(0, 0);
         M5.Lcd.println("sensor reset azimuth......");
-        M5.Lcd.print(sun_azimuth[0]);
+        M5.Lcd.print(target_azimuth);
         M5.Lcd.print(", ");
         M5.Lcd.println(current_azimuth);
 
@@ -555,42 +561,22 @@ void loop () {
         //300000/1000 = 300 times, 0.90 deg * 300 times = 225.0 deg
       }
     }
+    */
   }
   if (M5.BtnC.wasPressed()) {
     M5.Lcd.println("Button C was pressed");
-    if (state_azimuth == false) {
+    if (state_calibration_azimuth == false) {
       work_azimuth_run();
     }
-    else { // state_azimuth == true
+    else { // state_calibration_azimuth == true
       work_azimuth_stop();
     }
-    //current_azimuth = 0.00;
-    //M5.Lcd.println("Reset azimuth to 0.00");
-    /*
-    M5.Lcd.fillScreen(BLACK);
-    M5.Lcd.setTextColor(WHITE);
-    M5.Lcd.setTextSize(1);
-    M5.Lcd.setCursor(0, 0);
-    M5.Lcd.print("begin calibration in 3 seconds");
-    delay(3000);
-    M5.Lcd.setCursor(0, 10);
-    M5.Lcd.print("Flip + rotate core calibration");
-    bmm150.bmm150_calibrate(15000);
-    delay(100);
-
-    bmm150.Init();
-    bmm150.getMagnetOffset(&magoffsetX, &magoffsetY, &magoffsetZ);
-    bmm150.getMagnetScale(&magscaleX, &magscaleY, &magscaleZ);
-
-    M5.Lcd.fillScreen(BLACK);
-    M5.Lcd.setTextColor(GREEN, BLACK);
-    M5.Lcd.setTextSize(2);
-    */
   }
 
-  if (state_azimuth == false) 
+  if (state_calibration_azimuth == false) 
   {
     deltat = ((currentTime - lastAzimuthUpdate) / 1000000.0f);
+    // deltatで3秒ごとに実行する
     if (deltat > 3.0)
     {
       lastAzimuthUpdate = currentTime;
@@ -636,6 +622,7 @@ void loop () {
 
       Serial.println();
 
+      // checkPeriodで5分ごと、かつ、isTurnがfalseの場合のみ
       //if (now.minute()%periodWorkMinute == 0 && isTurn == false)
       if (checkPeriod == 0 && isTurn == false) {
         isTurn = true;
@@ -774,6 +761,7 @@ void loop () {
       M5.Lcd.print("Sensor_Azimuth: ");
       M5.Lcd.println(YAW);
       
+      // 現在角度が目標角度よりも小さい場合、目標角度に向けて駆動する
       //if (current_azimuth < sun_azimuth[0]) {
       if (current_azimuth < target_azimuth) {
         work_0p75Degree();
@@ -781,25 +769,45 @@ void loop () {
         //delay(2800);
         //200+2800=3000ms, move 0.1 degree -> 5 minutes = 300000ms, 
         //300000/3000 = 100 times, 0.1 deg * 100 times = 10.0 deg
+        // 現在角度が360.00を超えた場合、360.00を引く
+        /*
         if (current_azimuth > 360.00) {
           current_azimuth = current_azimuth - 360.00;
         }
+        // target 359.9
+        // current 359.5
+        // のときうかつに0.9足して引くと危ない
+        */
       }
-      else if (current_azimuth > target_azimuth && last_target_azimuth > target_azimuth && current_azimuth < target_azimuth + 360.0) {
-        // example
-        // current_azimuth = 350.00
-        // target_azimuth = 1.97
-        // last_target_azimuth = 357.59
-
-        work_0p75Degree();
-        current_azimuth = current_azimuth + 0.90;
-        if (current_azimuth > 360.00) {
-          current_azimuth = current_azimuth - 360.00;
-        }
-      }
+      // 現在角度が目標角度よりも大きい場合
       else {   // current_azimuth > target_azimuth
-        //delay(3000);
-        // do nothing
+        // 360-0.0の切り替わり、境界のケースの処理
+        // 現在角度が目標角度よりも大きい、かつ、前回の目標角度が目標角度よりも大きい、かつ、現在の角度が目標角度+360.0よりも小さい場合、駆動する
+        if (last_target_azimuth > target_azimuth)
+        {
+          if (current_azimuth < target_azimuth + 360.0)
+          {
+            // example
+            // current_azimuth = 350.00
+            // target_azimuth = 1.97
+            // last_target_azimuth = 357.59
+
+            work_0p75Degree();
+            current_azimuth = current_azimuth + 0.90;
+          }
+          // else, current_azimuth > target_azimuth && last_target_azimuth > target_azimuth && current_azimuth > target_azimuth + 360.0)
+          // 何もしない
+        }
+        // 現在角度が目標角度よりも大きい、かつ、前回の目標角度が目標角度よりも小さい場合
+        else //last_target_azimuth < target_azimuth
+        {
+          if (current_azimuth > 360.00) {
+            // 現在角度が360.00を超えた場合、360.00を引く
+            current_azimuth = current_azimuth - 360.00;
+          } 
+          //else, current_azimuth > target_azimuth && last_target_azimuth < target_azimuth && current_azimuth < 360.0
+          // 何もしない 
+        }
       }
     }
   }
@@ -908,23 +916,23 @@ void seek_sd_card () {
 
 void work_0p75Degree () {
   ledcWrite(pwm_channel, pwm_duty);
-  state_azimuth = true;
+  state_calibration_azimuth = true;
   //sleep(1); //100 Hz -> 100 pulse
   //delay(500); //50 pulse, OK
   //delay(100); //10 pulse, not work
   delay(200); //20 pulse
   ledcWrite(pwm_channel, 0);
-  state_azimuth = false;
+  state_calibration_azimuth = false;
 }
 
 void work_azimuth_run () {
   ledcWrite(pwm_channel, pwm_duty);
-  state_azimuth = true;
+  state_calibration_azimuth = true;
 }
 
 void work_azimuth_stop () {
   ledcWrite(pwm_channel, 0);
-  state_azimuth = false;
+  state_calibration_azimuth = false;
 }
 
 void get_bno055_data(void)
