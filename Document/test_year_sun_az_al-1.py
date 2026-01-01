@@ -23,7 +23,7 @@ koko = EarthLocation(lat=ido, lon=keido)
 # >>> input start time and time difference from GMT
 #toki = astropy.time.Time('2019-5-16') - 9*u.hour
 #toki = astropy.time.Time('2023-8-06') - 9*u.hour
-nenngappi = '2024-12-01'
+nenngappi = '2026-01-01'
 toki = astropy.time.Time(nenngappi) - 9*u.hour
 
 for i in range(365):
