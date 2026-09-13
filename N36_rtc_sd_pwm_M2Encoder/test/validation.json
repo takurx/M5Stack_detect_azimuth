@@ -1,0 +1,54 @@
+{
+  "result": "PASS",
+  "library_commit": "ebbeec3962f5dc21c094b94e22e056b7754feac5",
+  "world": {
+    "world_scenarios": 10,
+    "max_tracking_error_deg": 0.380005,
+    "max_pulse_ms": 200,
+    "checks": 1980080,
+    "physical_proven": false
+  },
+  "sketch": [
+    {
+      "sketch_checks": 29718,
+      "motor_enabled_in_stub": false,
+      "max_pulse_ms": 0,
+      "esp32_emulated": false
+    },
+    {
+      "sketch_checks": 29718,
+      "motor_enabled_in_stub": true,
+      "max_pulse_ms": 200,
+      "esp32_emulated": false
+    }
+  ],
+  "sanitizers": "address,undefined",
+  "runtime_mutants_rejected": [
+    "stale_gate_removed",
+    "night_gate_removed",
+    "pulse_deadline_removed",
+    "stall_gate_removed",
+    "firmware_gate_removed",
+    "invalid_flags_accepted",
+    "range_gate_removed",
+    "oversized_sun_gap_accepted"
+  ],
+  "hardware_tested": false,
+  "sensor_firmware_emulated": false,
+  "host_compiler": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+  "source_sha256": {
+    "include/EncoderInput.h": "003e2b0f7e4ae35f6d85742114761c48ff532ee21174306dc2cb38c4e81c969c",
+    "include/SunTable.h": "fc575d2ff50bf439c4a695babb8a51197a85004ce318d6d0e8418986f4ce97f8",
+    "include/Tracking.h": "aa78215769aeeb432c92a6c963214c6c4c46457e83c612e121074d8cb1df8d5c",
+    "platformio.ini": "5676354e678a0efa3843455b3b39a101be20d1b106ff8481bbec9dc34023020b",
+    "src/main.cpp": "7ab29e48eb90c59fdc6fafec6efe320adeb1936c20997d5406288ba4cf195cbb",
+    "test/run_world.py": "35a17d697ab871694b8171fbb0db35d5789b2ed8850cad015ce3873fc679c0e6",
+    "test/sketch_world.cpp": "5f2ea26be7ebcfb3f637e8404c1004c3f569743be0e3e0391ba4084f65d20661",
+    "test/stubs/Adafruit_BNO055.h": "8e3ed1e1a03dcb469d91c59e1db45211b3c48550a14433227538fe2d85795153",
+    "test/stubs/Arduino.h": "065338c60f8b62d793f84edbac6901ed7382b0c7b0a53bf399dae66a7627652b",
+    "test/stubs/M5Stack.h": "5e5b8b2d501111742ca85117764b4dc3236d41e65ad7c6a6e48a77459d2aa17b",
+    "test/stubs/RTClib.h": "cc7140992fd3386104184fd1001948520a5651fca2aea710526b9d0ae94db58f",
+    "test/stubs/Wire.h": "a262bac492542065a5636815eccb64854b5bc62f82648492303b8fdbd7ba83df",
+    "test/world_model.cpp": "0b496f85d16a8eaa0c0343e6a727db3540dbe8477aeca3a1923291c31cc7219e"
+  }
+}

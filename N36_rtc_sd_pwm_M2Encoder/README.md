@@ -47,7 +47,8 @@ claim compatibility with every Core/Core2/CoreS3 model or Arduino-ESP32 3.x.
 
 The monitor configuration was built successfully with PlatformIO 6.1.19 and
 Xtensa GCC 8.4.0+2021r2-patch5: RAM 23,332/327,680 bytes and flash
-426,485/1,310,720 bytes. No device was flashed.
+426,485/1,310,720 bytes. No device was flashed. Both output configurations
+were also exercised by the host sketch tests below.
 
 Start with the monitor-only configuration. Inspect actual I2C wiring, voltage,
 address conflicts, pull-ups, direction, driver behavior and mechanical travel
@@ -107,7 +108,7 @@ The sample policy uses 150 ms since the **start of a host read**, 200 ms pulses,
 800 ms minimum pulse gaps, 0.4 degree deadband, and a no-motion latch after
 2000 ms cumulative requested PWM with less than 0.3 degree progress. The initial
 1000 ms no-motion setting falsely stopped the low-speed/backlash model; the
-2000 ms policy was selected for the low-speed/backlash model range. These are configurable
+2000 ms policy passes the documented model range. These are configurable
 engineering choices, not measured actuator or sensor limits.
 
 The no-motion threshold includes quantization, so it is not a single-pulse
@@ -122,6 +123,37 @@ latency or a stuck CPU can extend output beyond the nominal limit. Slow SD,
 BNO and LCD work is excluded while requesting PWM, but an independent hardware
 stop/enable interlock is still required for hazardous machinery. No hardware
 watchdog or emergency-stop circuit is implemented by this sample.
+
+## Reproduce the world-model tests
+
+```sh
+git clone https://github.com/bakemocho/m2-absolute-encoder-i2c-host.git /tmp/m2-host
+git -C /tmp/m2-host checkout ebbeec3962f5dc21c094b94e22e056b7754feac5
+python3 N36_rtc_sd_pwm_M2Encoder/test/run_world.py /tmp/m2-host
+```
+
+Use an unused checkout path if `/tmp/m2-host` already exists. The runner refuses
+a different or dirty library version and makes temporary test binaries only.
+It compiles the real, unmodified library with the N36 production adapter and
+policy. It also executes N36's actual `setup()`/`loop()` against mocked M5Stack,
+SD, RTC, BNO055, PWM and Wire interfaces, in monitor and enabled configurations.
+No motor/device is connected and no network access occurs in the test runner.
+
+The physical model integrates a rotating object's independent angle from PWM,
+with speed, first-order inertia, initial backlash and optional jam. The sun is
+an analytic moving target, not a measured/astronomically qualified ephemeris.
+The synthetic sensor quantizes that angle into the public register format;
+it never copies the target into the measurement. The BNO stub deliberately
+disagrees with the encoder to check that it cannot override the feedback.
+
+The suite covers six speed/inertia combinations (0.4/0.8/1.2 deg/s and
+20/80 ms, initial 0.1 degree backlash), NACK/short-read recovery and jam/frozen
+register cases; unit cases add north wrap, stale data, night, STOP, no rearm,
+bad firmware/status/range and sun-table boundaries. ASan/UBSan check host runs.
+Eight separately compiled gate-removal mutants must fail at runtime, not merely
+fail compilation. `test/validation.json` records the observed result and source
+hashes. Model error/PWM timings are not hardware specifications, all-input
+proof, ESP32 instruction timing or sensor-firmware emulation.
 
 ## Remaining validation before use
 
