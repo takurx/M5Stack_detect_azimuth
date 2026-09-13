@@ -36,6 +36,7 @@ static void adapter_tests() {
     CHECK(!o.valid && o.error==n36::Reason::NeedMotion && !o.degraded);
     registers(bus,120); bus.status[7]|=m2enc::NeedMotion|m2enc::Degraded; o=n36::readEncoder(encoder,0,0);
     CHECK(!o.valid && o.error==n36::Reason::NeedMotion && o.degraded);
+    registers(bus,120); bus.status[7]|=n36::kTooFastFlag|m2enc::NeedMotion; CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::TooFast);
     registers(bus,120); bus.status[7]|=m2enc::Probation; CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::Probation);
     registers(bus,120); bus.status[7]|=m2enc::ConfigurationError; CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::SensorConfig);
     registers(bus,120); bus.status[6]=3; CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::NotScanning);
@@ -194,9 +195,10 @@ static void table_tests() {
 }
 // Independent physical state: only PWM drives angle. Sun/IMU do not assign
 // encoder position. A quantized register-file model supplies the REAL library.
-// Encoder lock model: above `ceiling` deg/s the single-LED scan cannot follow and the sensor
-// reports NEED MOTION; with rest_resolves it re-locks after 100 ms at rest, otherwise never
-// without slow motion. Both are assumptions to exercise the host policy, not firmware behavior.
+// Encoder lock model: above `ceiling` deg/s the single-LED scan cannot follow; the sensor reports
+// TOO FAST while outrun and NEED MOTION once it slows. rest_resolves=true re-locks after 100 ms at
+// rest, which the product firmware does NOT do (it needs two corroborating transitions of slow
+// motion); it is kept only as an optimistic bound. rest_resolves=false is the firmware-like case.
 struct LockModel {
     double ceiling = 5.0; bool rest_resolves = true, locked = true; unsigned rest_ms = 0;
     void observe(double velocity, unsigned dt_ms) {
@@ -225,7 +227,7 @@ static void world_tests() {
         for (uint32_t ms = 0; ms <= 60000; ++ms) {
             fake_ms = ms; plant.step(tracking.motorOn()); lock.observe(plant.velocity, 1);
             auto target = sun(float(121 + .003 * ms / 1000.0));
-            if (ms % 50 == 0) { registers(bus, plant.angle); if (!lock.locked) bus.status[7] |= m2enc::NeedMotion; tracking.observe(n36::readEncoder(enc, ms, 0)); }
+            if (ms % 50 == 0) { registers(bus, plant.angle); if (!lock.locked) bus.status[7] |= fabs(plant.velocity) > lock.ceiling ? n36::kTooFastFlag | m2enc::NeedMotion : m2enc::NeedMotion; tracking.observe(n36::readEncoder(enc, ms, 0)); }
             tracking.tick(ms, target);
             if (tracking.motorOn() && !was_on) ++pulses; was_on = tracking.motorOn();
             CHECK(tracking.pulseLengthMs() <= 200);

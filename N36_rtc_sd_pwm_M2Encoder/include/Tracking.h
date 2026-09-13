@@ -7,7 +7,7 @@ inline float wrap(float a) { a = fmodf(a, 360.0f); return a < 0 ? a + 360.0f : a
 inline float distance(float a, float b) { return fabsf(wrap(a - b + 180.0f) - 180.0f); }
 enum class Reason { Ok, Disarmed, BusError, Firmware, NotAbsolute, Stale, NoSun,
                     Night, Alignment, AtTarget, Tracking, Cooldown, Stall,
-                    NeedMotion, Probation, NotScanning, SensorConfig, Restarted, WaitSun };
+                    NeedMotion, Probation, NotScanning, SensorConfig, Restarted, WaitSun, TooFast };
 inline const char* name(Reason r) {
     switch (r) {
     case Reason::Ok: return "OK"; case Reason::Disarmed: return "DISARMED"; case Reason::BusError: return "BUS ERROR";
@@ -19,6 +19,7 @@ inline const char* name(Reason r) {
     case Reason::NeedMotion: return "NEED MOTION"; case Reason::Probation: return "PROBATION";
     case Reason::NotScanning: return "NOT SCANNING"; case Reason::SensorConfig: return "SENSOR CONFIG";
     case Reason::Restarted: return "SENSOR RESTART"; case Reason::WaitSun: return "WAIT SUN";
+    case Reason::TooFast: return "TOO FAST";
     }
     return "UNKNOWN";
 }
@@ -91,7 +92,7 @@ public:
             }
             // While coasting after a pulse the sensor may lose lock (NEED MOTION) or hand back a non-absolute sample;
             // that is expected until the gap has elapsed, so keep waiting instead of halting.
-            bool motion_only = observed_ && (observation_.error == Reason::NeedMotion || observation_.error == Reason::NotAbsolute);
+            bool motion_only = observed_ && (observation_.error == Reason::NeedMotion || observation_.error == Reason::NotAbsolute || observation_.error == Reason::TooFast);
             if (motion_only && on_) { on_ = false; stopped_at_ = now; gap_ = true; measure_pending_ = true; reason_ = Reason::Cooldown; return; } // lock lost mid-pulse: stop now, settle
             if (settling && observed_ && motion_only) { reason_ = Reason::Cooldown; return; }
             halt(observation_.error, now); return;

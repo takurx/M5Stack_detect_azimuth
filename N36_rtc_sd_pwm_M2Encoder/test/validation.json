@@ -5,7 +5,7 @@
     "world_scenarios": 14,
     "max_tracking_error_deg": 0.380005,
     "max_pulse_ms": 200,
-    "checks": 2220142,
+    "checks": 2220143,
     "physical_proven": false
   },
   "sketch": [
@@ -53,11 +53,11 @@
   "sensor_firmware_emulated": false,
   "host_compiler": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
   "source_sha256": {
-    "include/EncoderInput.h": "e423db4e005860066a607b567d226f571fade39da5a223defb4d7c102b65f74a",
+    "include/EncoderInput.h": "3e688d8d34528e1a6e1aafb06100a2bb55006b03622275f3786be7b2d1544e08",
     "include/FlightLog.h": "217ea4dd10a51a576e1cefc18ff45e60f780b37c42fb035460a8907ad3280e61",
     "include/ScanControl.h": "39385fd99e19a1be5f6c4a9b337c5630c5971d07931c3db19ab2d569cda5d991",
     "include/SunTable.h": "fc575d2ff50bf439c4a695babb8a51197a85004ce318d6d0e8418986f4ce97f8",
-    "include/Tracking.h": "0bb4c5dc6573db14775c755b9bd4a8f82f3c032558b0aa468e19c443b6ea280e",
+    "include/Tracking.h": "8a6fa970405c061d90520daaff5f82e9e650792daf3056cdca733218e8984559",
     "platformio.ini": "e544d0cb845110892b760fd874dfe955f122aa6db13e0f8fc9ebf3980ad4b778",
     "src/main.cpp": "f3057b37c289977267dde86dd493b43810421b7bee58bfb005938bc535e0ebe2",
     "test/run_world.py": "ae8bb0b394f79cb39783ca47467cb51d35eba28082eb86df31d4f1da073006d6",
@@ -70,6 +70,6 @@
     "test/stubs/Wire.h": "693dfcb0c4c60a5b76a98e20bafe7050739283bdec87a9b6d0bfb12744e707e8",
     "test/stubs/esp_system.h": "5878b2c3e5cc20258320c8aab4c290c27c1825d2005c3f8c2567656f046764d7",
     "test/stubs/esp_task_wdt.h": "e658b0cef967ee094c5535f513d7df0fd5f4f11a688c2b8aee2ff6fbd061dfaf",
-    "test/world_model.cpp": "b2682d15a0e67c136a339cd39a07df6a73cf6cb3727835eb0f6b95b83ba6efb3"
+    "test/world_model.cpp": "65addfca3bad032668816c4d23c2954afd5025f43951ceecda24effb2d159570"
   }
 }

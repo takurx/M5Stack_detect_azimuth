@@ -116,7 +116,12 @@ output stays off and a later explicit arm is required.
 
 The adapter names the sensor's own states instead of folding them into a bus
 error: NOT SCANNING (stopped or unconfigured), SENSOR CONFIG, PROBATION,
-NEED MOTION and SENSOR RESTART. A detected restart re-attaches with
+NEED MOTION, TOO FAST and SENSOR RESTART. TOO FAST is core flag 0x80 (named
+`TooFast` from M2Encoder 0.2.1; this sample checks the raw bit against the
+pinned 0.2.0 header): the sensor's edges outran its scan window, the angle is
+withheld, and the controller ends any pulse at once and waits out the gap.
+Without that flag (older sensor firmware) a shaft that outruns the scan reads
+as a frozen but valid angle, which the no-motion latch would report as a jam. A detected restart re-attaches with
 `begin()` on the next read; nothing is re-armed. A NEED MOTION reading with no
 sensor fault may, when `N36_RESOLVE_PULSES` is greater than zero, receive that
 many blind forward pulses of 100 ms per arm before the controller halts; the
@@ -219,9 +224,11 @@ disagrees with the encoder to check that it cannot override the feedback.
 
 The suite covers six speed/inertia combinations (0.4/0.8/1.2 deg/s and
 20/80 ms, initial 0.1 degree backlash), four fast-shaft cases (10 and 40 deg/s
-with an assumed 5 deg/s sensor lock ceiling, with and without re-lock at rest:
-with re-lock the learned pulse keeps the error inside the wait band, without it
-the default policy halts on NEED MOTION after bounded motion), NACK/short-read
+with an assumed 5 deg/s sensor lock ceiling, reporting TOO FAST while outrun;
+"re-lock at rest" is an optimistic bound the product firmware does not
+implement, it needs two corroborating transitions of slow motion, so the
+firmware-like case is the one without re-lock, where the default policy halts
+on NEED MOTION after bounded motion), NACK/short-read
 recovery and jam/frozen register cases; unit cases add north wrap, stale data, night, STOP, no rearm,
 bad firmware/status/range, CRC corruption, origin adjustment, device TTL and
 expiry during the second read, and sun-table boundaries. ASan/UBSan check host runs.
