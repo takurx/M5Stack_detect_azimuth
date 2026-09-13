@@ -4,15 +4,11 @@
 #include "EncoderInput.h"
 #include "SunTable.h"
 TwoWire Wire;
+uint32_t fake_ms=0, fake_pwm=0, fake_bus_us=0;
+#include "SensorFrame.h"
 static unsigned checks = 0;
 #define CHECK(x) do { ++checks; if (!(x)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #x); exit(1); } } while (0)
-static void registers(TwoWire& bus, float angle) {
-    bus.registers.fill(0); bus.nack = bus.short_read = false;
-    unsigned cell = (unsigned)floorf(n36::wrap(angle) * 5.0f);
-    bus.registers[0] = cell; bus.registers[1] = cell >> 8;
-    bus.registers[4] = m2enc::ST_ABSOLUTE;
-    bus.registers[5] = 1; bus.registers[7] = 7; bus.registers[14] = 1;
-}
+static void registers(TwoWire& bus, float angle) { sensorFrame(bus,n36::wrap(angle)); }
 static n36::Observation obs(float angle, uint32_t now) {
     n36::Observation o; o.valid = true; o.degrees = angle; o.at_ms = now;
     return o;
@@ -21,28 +17,46 @@ static n36::SunTarget sun(float angle, float altitude = 30) {
     n36::SunTarget s; s.azimuth = angle; s.elevation = altitude; s.valid = true; return s;
 }
 static void adapter_tests() {
-    TwoWire bus; m2enc::M2Encoder encoder; registers(bus, 120);
-    CHECK(encoder.begin(bus));
-    auto o = n36::readEncoder(encoder, 50, 2); CHECK(o.valid && fabs(o.degrees - 122) < .001);
-    bus.nack = true; o = n36::readEncoder(encoder, 60, 0); CHECK(!o.valid && !isfinite(o.degrees));
-    registers(bus, 120); bus.short_read = true; CHECK(!n36::readEncoder(encoder, 0, 0).valid);
-    for (uint8_t version : {0, 6, 14, 255}) {
-        registers(bus, 120); bus.registers[7] = version;
-        CHECK(n36::readEncoder(encoder, 0, 0).error == n36::Reason::Firmware);
+    TwoWire bus; m2enc::M2Encoder encoder(bus); registers(bus,120);
+    CHECK(encoder.begin()==m2enc::Ok);
+    auto o=n36::readEncoder(encoder,0,2); CHECK(o.valid && fabs(o.degrees-122)<.001);
+    bus.nack=true; o=n36::readEncoder(encoder,0,0); CHECK(!o.valid && !isfinite(o.degrees));
+    registers(bus,120); bus.short_read=true; CHECK(!n36::readEncoder(encoder,0,0).valid);
+    registers(bus,120); bus.corrupt=true; CHECK(!n36::readEncoder(encoder,0,0).valid);
+    for(uint8_t version : {0,7,13,255}) {
+        registers(bus,120); bus.status[24]=version;
+        CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::Firmware);
     }
-    for (uint8_t flag : {m2enc::ST_PROBATION, m2enc::ST_CFG_ERROR, m2enc::ST_NEED_MOTION}) {
-        registers(bus, 120); bus.registers[4] |= flag; CHECK(!n36::readEncoder(encoder, 0, 0).valid);
+    for(uint8_t flag : {uint8_t(m2enc::Probation),uint8_t(m2enc::ConfigurationError),uint8_t(m2enc::NeedMotion)}) {
+        registers(bus,120); bus.status[7]|=flag; CHECK(!n36::readEncoder(encoder,0,0).valid);
     }
-    registers(bus, 120); bus.registers[14] = 2; CHECK(!n36::readEncoder(encoder, 0, 0).valid);
-    registers(bus, 120); bus.registers[20] = 1; CHECK(!n36::readEncoder(encoder, 0, 0).valid);
-    registers(bus, 120); bus.registers[0] = 0xff; bus.registers[1] = 0xff;
-    CHECK(!n36::readEncoder(encoder, 0, 0).valid);
-    registers(bus, 120); bus.registers[0] = 8; bus.registers[1] = 7; // 1800, not a valid angle
-    CHECK(!n36::readEncoder(encoder, 0, 0).valid);
-    registers(bus, 120); bus.registers[4] |= m2enc::ST_DEGRADED; bus.registers[16] = 3;
-    o = n36::readEncoder(encoder, 0, 0); CHECK(o.valid && o.degraded);
-    CHECK(!n36::readEncoder(encoder, 0, NAN).valid);
-    registers(bus, 359.8f); o = n36::readEncoder(encoder, 0, 1); CHECK(o.valid && o.degrees < 1.1f);
+    for(uint16_t cell : {uint16_t(1800),uint16_t(65535)}) {
+        registers(bus,120); m2enc::em_p16(bus.status.data()+8,cell);
+        CHECK(!n36::readEncoder(encoder,0,0).valid);
+    }
+    registers(bus,120); bus.status[7]|=m2enc::Degraded;
+    o=n36::readEncoder(encoder,0,0); CHECK(o.valid && o.degraded);
+    CHECK(!n36::readEncoder(encoder,0,NAN).valid);
+    registers(bus,359.8f); o=n36::readEncoder(encoder,0,1); CHECK(o.valid && o.degrees<1.1f);
+    // Device origin-adjusted angle, plus explicit host mounting offset.
+    registers(bus,120); m2enc::em_p32(bus.position.data()+6,119000);
+    m2enc::em_p32(bus.position.data()+10,1000);
+    o=n36::readEncoder(encoder,0,2); CHECK(o.valid && fabs(o.degrees-121)<.001);
+    registers(bus,120); m2enc::em_p32(bus.status.data()+26,50000);
+    m2enc::em_p32(bus.position.data()+18,20000);
+    o=n36::readEncoder(encoder,0,0); CHECK(o.valid && o.valid_for_ms==19);
+    n36::Tracking t; t.observe(o); t.arm(0); t.tick(18,sun(121)); CHECK(t.motorOn());
+    t.tick(19,sun(121)); CHECK(!t.motorOn() && t.reason()==n36::Reason::Stale);
+    registers(bus,120); bus.latency_us=10000; fake_bus_us=0;
+    m2enc::em_p32(bus.status.data()+26,19000);
+    CHECK(!n36::readEncoder(encoder,0,0).valid); // Status expires during Position read.
+    registers(bus,120); fake_bus_us=0;
+    m2enc::em_p32(bus.status.data()+26,50000); m2enc::em_p32(bus.position.data()+18,30000);
+    o=n36::readEncoder(encoder,0,0); CHECK(o.valid && o.valid_for_ms==19);
+    bus.latency_us=0; fake_bus_us=0;
+    registers(bus,120); m2enc::em_p32(bus.position.data()+18,1999);
+    CHECK(!n36::readEncoder(encoder,0,0).valid); // Sub-2ms uncertainty must not become 150ms.
+    CHECK(bus.command_count==0);
 }
 static void controller_tests() {
     n36::Tracking t; t.observe(obs(359, 0)); t.tick(0, sun(1)); CHECK(!t.motorOn());
@@ -55,7 +69,8 @@ static void controller_tests() {
     t.stop(1001); t.tick(1002, sun(1)); CHECK(!t.motorOn() && !t.armed());
     t.arm(1002); t.observe(obs(2, 1002)); t.tick(1002, sun(1));
     CHECK(!t.motorOn() && t.reason() == n36::Reason::Alignment);
-    t.arm(0); t.observe(obs(10, 0)); t.tick(149, sun(11)); CHECK(t.motorOn());
+    auto long_lived=obs(10,0); long_lived.valid_for_ms=500;
+    t.arm(0); t.observe(long_lived); t.tick(149, sun(11)); CHECK(t.motorOn());
     t.tick(150, sun(11)); CHECK(!t.motorOn() && t.reason() == n36::Reason::Stale);
     t.observe(obs(10, 151)); t.tick(151, sun(11)); CHECK(!t.armed()); // No auto-restart.
     for (int mode = 0; mode < 4; ++mode) {
@@ -119,10 +134,10 @@ static void world_tests() {
     unsigned scenarios = 0; double max_error = 0; unsigned max_pulse = 0;
     for (double rate : {.4, .8, 1.2}) for (double inertia : {.02, .08}) {
         Plant plant; plant.rate = rate; plant.tau = inertia;
-        TwoWire bus; registers(bus, plant.angle); m2enc::M2Encoder enc; CHECK(enc.begin(bus));
+        TwoWire bus; registers(bus, plant.angle); m2enc::M2Encoder enc(bus); CHECK(enc.begin()==m2enc::Ok);
         n36::Tracking tracking; tracking.arm(0); unsigned pulse = 0;
         for (uint32_t ms = 0; ms < 120000; ++ms) {
-            plant.step(tracking.motorOn());
+            fake_ms=ms; plant.step(tracking.motorOn());
             // Analytic sensitivity fixture, NOT astronomical ephemeris accuracy.
             auto target = sun(float(121 + .003 * ms / 1000.0));
             if (ms % 50 == 0) { registers(bus, plant.angle); tracking.observe(n36::readEncoder(enc, ms, 0)); }
@@ -135,20 +150,21 @@ static void world_tests() {
     }
     // Bus break while driving stops immediately when the next read fails.
     for (bool short_read : {false, true}) {
-        TwoWire bus; registers(bus, 120); m2enc::M2Encoder enc; CHECK(enc.begin(bus));
+        fake_ms=0;
+        TwoWire bus; registers(bus, 120); m2enc::M2Encoder enc(bus); CHECK(enc.begin()==m2enc::Ok);
         n36::Tracking tracking; tracking.arm(0);
         tracking.observe(n36::readEncoder(enc, 0, 0)); tracking.tick(0, sun(121)); CHECK(tracking.motorOn());
         bus.nack = !short_read; bus.short_read = short_read;
-        tracking.observe(n36::readEncoder(enc, 50, 0)); tracking.tick(50, sun(121)); CHECK(!tracking.motorOn());
-        registers(bus, 120); tracking.observe(n36::readEncoder(enc, 100, 0)); tracking.tick(100, sun(121));
+        fake_ms=50; tracking.observe(n36::readEncoder(enc, 50, 0)); tracking.tick(50, sun(121)); CHECK(!tracking.motorOn());
+        fake_ms=100; registers(bus, 120); tracking.observe(n36::readEncoder(enc, 100, 0)); tracking.tick(100, sun(121));
         CHECK(!tracking.armed()); ++scenarios;
     }
     // Jam / frozen register model must trip the cumulative no-motion policy.
     for (bool frozen : {false, true}) {
         Plant plant; plant.jammed = !frozen; TwoWire bus; registers(bus, 120);
-        m2enc::M2Encoder enc; CHECK(enc.begin(bus)); n36::Tracking tracking; tracking.arm(0);
+        m2enc::M2Encoder enc(bus); CHECK(enc.begin()==m2enc::Ok); n36::Tracking tracking; tracking.arm(0);
         for (uint32_t ms = 0; ms < 12000; ++ms) {
-            plant.step(tracking.motorOn());
+            fake_ms=ms; plant.step(tracking.motorOn());
             if (ms % 50 == 0) { registers(bus, frozen ? 120 : plant.angle); tracking.observe(n36::readEncoder(enc, ms, 0)); }
             tracking.tick(ms, sun(122));
         }

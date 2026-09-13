@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-PIN = "ebbeec3962f5dc21c094b94e22e056b7754feac5"
+PIN = "cdd97b57c1b38dcca078f30dc8d1d1c29dec77a4"
 parser = argparse.ArgumentParser()
 parser.add_argument("library", type=Path)
 args = parser.parse_args()
@@ -39,9 +39,9 @@ mutants = {
     "night_gate_removed": ("Tracking.h", "sun.elevation <= 0", "false"),
     "pulse_deadline_removed": ("Tracking.h", "now - pulse_at_ >= policy_.pulse_ms", "false"),
     "stall_gate_removed": ("Tracking.h", "on_ms_ >= policy_.stall_on_ms", "false"),
-    "firmware_gate_removed": ("EncoderInput.h", "r.fw_version != 0x07", "false"),
-    "invalid_flags_accepted": ("EncoderInput.h", "(r.status & forbidden)", "(r.status & forbidden & 0)"),
-    "range_gate_removed": ("EncoderInput.h", "r.cells >= 1800", "false"),
+    "device_ttl_gate_removed": ("Tracking.h", "now - observation_.at_ms >= observation_.valid_for_ms", "false"),
+    "status_expiry_between_reads_ignored": ("EncoderInput.h", "!r.usable(now_us)", "false"),
+    "device_origin_ignored": ("EncoderInput.h", "wrap(degrees + offset_deg)", "wrap(r.cell * 0.2f + offset_deg)"),
     "oversized_sun_gap_accepted": ("SunTable.h", "next_.utc - current_.utc > 300", "false"),
 }
 with tempfile.TemporaryDirectory(prefix="n36-world-") as directory:

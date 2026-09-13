@@ -132,7 +132,7 @@ watchdog or emergency-stop circuit is implemented by this sample.
 
 ```sh
 git clone https://github.com/bakemocho/m2-absolute-encoder-i2c-host.git /tmp/m2-host
-git -C /tmp/m2-host checkout ebbeec3962f5dc21c094b94e22e056b7754feac5
+git -C /tmp/m2-host checkout cdd97b57c1b38dcca078f30dc8d1d1c29dec77a4
 python3 N36_rtc_sd_pwm_M2Encoder/test/run_world.py /tmp/m2-host
 ```
 
@@ -146,14 +146,15 @@ No motor/device is connected and no network access occurs in the test runner.
 The physical model integrates a rotating object's independent angle from PWM,
 with speed, first-order inertia, initial backlash and optional jam. The sun is
 an analytic moving target, not a measured/astronomically qualified ephemeris.
-The synthetic sensor quantizes that angle into the public register format;
+The synthetic sensor quantizes that angle into protocol-1 Status/Position frames;
 it never copies the target into the measurement. The BNO stub deliberately
 disagrees with the encoder to check that it cannot override the feedback.
 
 The suite covers six speed/inertia combinations (0.4/0.8/1.2 deg/s and
 20/80 ms, initial 0.1 degree backlash), NACK/short-read recovery and jam/frozen
 register cases; unit cases add north wrap, stale data, night, STOP, no rearm,
-bad firmware/status/range and sun-table boundaries. ASan/UBSan check host runs.
+bad firmware/status/range, CRC corruption, origin adjustment, device TTL and
+expiry during the second read, and sun-table boundaries. ASan/UBSan check host runs.
 Eight separately compiled gate-removal mutants must fail at runtime, not merely
 fail compilation. `test/validation.json` records the observed result and source
 hashes. Model error/PWM timings are not hardware specifications, all-input

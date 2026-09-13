@@ -1,22 +1,22 @@
 {
   "result": "PASS",
-  "library_commit": "ebbeec3962f5dc21c094b94e22e056b7754feac5",
+  "library_commit": "cdd97b57c1b38dcca078f30dc8d1d1c29dec77a4",
   "world": {
     "world_scenarios": 10,
     "max_tracking_error_deg": 0.380005,
     "max_pulse_ms": 200,
-    "checks": 1980080,
+    "checks": 1980087,
     "physical_proven": false
   },
   "sketch": [
     {
-      "sketch_checks": 29718,
+      "sketch_checks": 29719,
       "motor_enabled_in_stub": false,
       "max_pulse_ms": 0,
       "esp32_emulated": false
     },
     {
-      "sketch_checks": 29718,
+      "sketch_checks": 29719,
       "motor_enabled_in_stub": true,
       "max_pulse_ms": 200,
       "esp32_emulated": false
@@ -28,27 +28,28 @@
     "night_gate_removed",
     "pulse_deadline_removed",
     "stall_gate_removed",
-    "firmware_gate_removed",
-    "invalid_flags_accepted",
-    "range_gate_removed",
+    "device_ttl_gate_removed",
+    "status_expiry_between_reads_ignored",
+    "device_origin_ignored",
     "oversized_sun_gap_accepted"
   ],
   "hardware_tested": false,
   "sensor_firmware_emulated": false,
   "host_compiler": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
   "source_sha256": {
-    "include/EncoderInput.h": "003e2b0f7e4ae35f6d85742114761c48ff532ee21174306dc2cb38c4e81c969c",
+    "include/EncoderInput.h": "7eff4ace5112c44b5b3b0123d642cabbd8d57eac1c076aa5991a80d44327930b",
     "include/SunTable.h": "fc575d2ff50bf439c4a695babb8a51197a85004ce318d6d0e8418986f4ce97f8",
-    "include/Tracking.h": "aa78215769aeeb432c92a6c963214c6c4c46457e83c612e121074d8cb1df8d5c",
-    "platformio.ini": "5676354e678a0efa3843455b3b39a101be20d1b106ff8481bbec9dc34023020b",
-    "src/main.cpp": "7ab29e48eb90c59fdc6fafec6efe320adeb1936c20997d5406288ba4cf195cbb",
-    "test/run_world.py": "35a17d697ab871694b8171fbb0db35d5789b2ed8850cad015ce3873fc679c0e6",
-    "test/sketch_world.cpp": "5f2ea26be7ebcfb3f637e8404c1004c3f569743be0e3e0391ba4084f65d20661",
+    "include/Tracking.h": "6299fe7430a22144814b5ca991a153a511ba0bc152012e397a93e21fcd88ca88",
+    "platformio.ini": "e544d0cb845110892b760fd874dfe955f122aa6db13e0f8fc9ebf3980ad4b778",
+    "src/main.cpp": "63bb7405f37cef9abb6febf613c65f70a0751923a45be3ac15544c59e4e77305",
+    "test/run_world.py": "13fd4263ff9fca6f04cbb51880fd4b063083ae5e94865a814fbdbf3f940b8805",
+    "test/sketch_world.cpp": "36bd2f257073bae7a070bc34fe6f34a8fe80abe07cc0de1db0590369d5766b1a",
     "test/stubs/Adafruit_BNO055.h": "8e3ed1e1a03dcb469d91c59e1db45211b3c48550a14433227538fe2d85795153",
-    "test/stubs/Arduino.h": "065338c60f8b62d793f84edbac6901ed7382b0c7b0a53bf399dae66a7627652b",
+    "test/stubs/Arduino.h": "c070abd458a068109862bf343e92a2aef11766d7bab28a355e1fe9ab5b62938c",
     "test/stubs/M5Stack.h": "5e5b8b2d501111742ca85117764b4dc3236d41e65ad7c6a6e48a77459d2aa17b",
     "test/stubs/RTClib.h": "cc7140992fd3386104184fd1001948520a5651fca2aea710526b9d0ae94db58f",
-    "test/stubs/Wire.h": "a262bac492542065a5636815eccb64854b5bc62f82648492303b8fdbd7ba83df",
-    "test/world_model.cpp": "0b496f85d16a8eaa0c0343e6a727db3540dbe8477aeca3a1923291c31cc7219e"
+    "test/stubs/SensorFrame.h": "0d58072b23b18d78c5b89dc988fcd6a2212dfd364a61b46bb7cf606863bc9d8d",
+    "test/stubs/Wire.h": "805138d3a49b826e5717c9a8d6127f6fed4d7aec7f9b780917dab461f4aab84b",
+    "test/world_model.cpp": "c0779c546e2919e358ab04e218b55a99ec149a07d25479fcaee3351e9a1a99dc"
   }
 }
