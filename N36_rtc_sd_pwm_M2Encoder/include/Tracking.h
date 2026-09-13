@@ -5,11 +5,11 @@
 namespace n36 {
 inline float wrap(float a) { a = fmodf(a, 360.0f); return a < 0 ? a + 360.0f : a; }
 inline float distance(float a, float b) { return fabsf(wrap(a - b + 180.0f) - 180.0f); }
-enum class Reason { Disarmed, BusError, Firmware, NotAbsolute, Stale, NoSun,
+enum class Reason { Ok, Disarmed, BusError, Firmware, NotAbsolute, Stale, NoSun,
                     Night, Alignment, AtTarget, Tracking, Cooldown, Stall };
 inline const char* name(Reason r) {
     switch (r) {
-    case Reason::Disarmed: return "DISARMED"; case Reason::BusError: return "BUS ERROR";
+    case Reason::Ok: return "OK"; case Reason::Disarmed: return "DISARMED"; case Reason::BusError: return "BUS ERROR";
     case Reason::Firmware: return "FW UNSUPPORTED"; case Reason::NotAbsolute: return "NO ABSOLUTE";
     case Reason::Stale: return "STALE"; case Reason::NoSun: return "NO SUN DATA";
     case Reason::Night: return "NIGHT"; case Reason::Alignment: return "ALIGN MANUALLY";
@@ -28,7 +28,7 @@ struct Observation {
 struct SunTarget { float azimuth = NAN, elevation = NAN; bool valid = false; };
 struct Policy {
     uint32_t sample_ttl_ms = 150, pulse_ms = 200, gap_ms = 800, stall_on_ms = 2000;
-    float deadband_deg = 0.4f, max_forward_deg = 5.0f, motion_deg = 0.3f;
+    float deadband_deg = 0.4f, max_forward_deg = 5.0f, motion_deg = 0.5f; // motion_deg = 2.5 sensor cells of 0.2 deg
 };
 // One-way PWM, as in N34. No automatic homing, reverse, IMU fallback or restart.
 class Tracking {

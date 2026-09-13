@@ -96,7 +96,15 @@ time is performed. Invalid/stopped/lost-power RTC disables targets.
 
 The lookup requires an ordered current and following row, no more than 300
 seconds apart. It holds the current row until the following one, without
-interpolating across north. Future-only data, reversed timestamps, malformed or
+interpolating across north. The target therefore lags the true sun by up to
+one row spacing. Near solar noon the azimuth rate is about
+15 deg/h x cos(declination) / sin(latitude - declination): at 35 deg N that is
+roughly 0.43 deg/min at the equinoxes and 1.1 deg/min at the June solstice, so
+300 s rows lag by 2 to 6 degrees, far beyond the 0.4 degree deadband, and even
+60 s rows lag by up to about 1 degree. Choose the row spacing so that
+spacing x local azimuth rate stays below the deadband (about 20 s at 35 deg N
+in June), or accept the lag as a documented tracking error. The world model
+moves the sun at 0.003 deg/s, which does not exercise this limit. Future-only data, reversed timestamps, malformed or
 overlong lines, out-of-range/non-finite values, gaps, exhaustion and missing SD
 do not become valid targets. Reload/restart after repairing the input; there is
 no silent seek back to an earlier day. Night (elevation <= 0) disarms.
@@ -110,13 +118,14 @@ The sample policy caps freshness at 150 ms after the adapter read and also
 honors the shorter remaining device TTL. Both I2C reads are charged against
 that TTL, rounded down with a 1 ms phase margin. It uses 200 ms pulses,
 800 ms minimum pulse gaps, 0.4 degree deadband, and a no-motion latch after
-2000 ms cumulative requested PWM with less than 0.3 degree progress. The initial
+2000 ms cumulative requested PWM with less than 0.5 degree progress. The initial
 1000 ms no-motion setting falsely stopped the low-speed/backlash model; the
 2000 ms policy passes the documented model range. These are configurable
 engineering choices, not measured actuator or sensor limits.
 
-The no-motion threshold includes quantization, so it is not a single-pulse
-movement requirement. A motionless read at an already-reached target is not
+The no-motion threshold is 2.5 sensor cells (0.2 degree cells), so a
+two-cell edge flicker of a stationary shaft cannot keep resetting the
+no-motion budget; it is not a single-pulse movement requirement. A motionless read at an already-reached target is not
 necessarily detectable if a faulty device keeps issuing plausible frames.
 The current interface checks payload CRC and remaining validity, but neither
 proves physical sensor health. Do not use this sample as a

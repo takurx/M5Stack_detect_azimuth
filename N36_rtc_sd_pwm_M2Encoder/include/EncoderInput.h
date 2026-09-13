@@ -27,6 +27,6 @@ inline Observation readEncoder(m2enc::M2Encoder& encoder, uint32_t started_ms, f
     o.valid_for_ms = remaining / 1000 - 1;
     o.degrees = wrap(degrees + offset_deg);
     o.degraded = (r.core_status & (m2enc::Degraded | m2enc::BitFault)) != 0;
-    o.valid = true; o.error = Reason::AtTarget; return o;
+    o.valid = true; o.error = Reason::Ok; return o;
 }
 } // namespace n36
