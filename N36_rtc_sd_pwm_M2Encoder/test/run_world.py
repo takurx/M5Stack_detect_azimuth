@@ -20,13 +20,15 @@ library = args.library.resolve()
 assert subprocess.check_output(["git", "-C", str(library), "rev-parse", "HEAD"], text=True).strip() == PIN
 assert not subprocess.check_output(["git", "-C", str(library), "status", "--porcelain"], text=True).strip()
 
-def compile_run(include, output, sanitize=False, sketch=False, motor=False):
+def compile_run(include, output, sanitize=False, sketch=False, motor=False, scan=False):
     command = ["c++", "-std=c++11", "-Wall", "-Wextra", "-Werror", "-O1",
                "-I" + str(include), "-I" + str(ROOT / "test/stubs"), "-I" + str(library / "src"),
                str(ROOT / ("test/sketch_world.cpp" if sketch else "test/world_model.cpp")),
                str(library / "src/M2Encoder.cpp"), "-o", str(output)]
     if motor:
         command += ["-DN36_ENABLE_MOTOR=1", "-DN36_ALIGNMENT_CONFIRMED=1"]
+    if scan:
+        command += ["-DN36_SCAN_PERIOD_US=20000", "-DN36_SCAN_SETTLE_US=2000", "-DN36_SCAN_BLANK_US=500", "-DN36_SCAN_STABLE_READS=2"]
     if sanitize:
         command += ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"]
     compiled = subprocess.run(command, capture_output=True, text=True)
@@ -43,6 +45,10 @@ mutants = {
     "status_expiry_between_reads_ignored": ("EncoderInput.h", "!r.usable(now_us)", "false"),
     "device_origin_ignored": ("EncoderInput.h", "wrap(degrees + offset_deg)", "wrap(r.cell * 0.2f + offset_deg)"),
     "oversized_sun_gap_accepted": ("SunTable.h", "next_.utc - current_.utc > 300", "false"),
+    "resolve_budget_unbounded": ("Tracking.h", "resolves_ < policy_.resolve_pulses", "true"),
+    "resolve_ignores_sensor_fault": ("Tracking.h", "!observation_.degraded &&", ""),
+    "scan_receipt_result_ignored": ("ScanControl.h", "r.command_result == m2enc::M2_OK", "true"),
+    "scan_retries_forever": ("ScanControl.h", "!retried_ && e.retry()", "e.retry()"),
 }
 with tempfile.TemporaryDirectory(prefix="n36-world-") as directory:
     temporary = Path(directory)
@@ -55,9 +61,9 @@ with tempfile.TemporaryDirectory(prefix="n36-world-") as directory:
         raise RuntimeError(sanitized.stderr + sanitized.stdout)
     assert json.loads(sanitized.stdout) == metrics
     sketch_results = []
-    for motor in (False, True):
-        sketch = compile_run(ROOT / "include", temporary / ("sketch-" + str(motor)),
-                             sanitize=True, sketch=True, motor=motor)
+    for motor, scan in ((False, False), (True, False), (False, True)):
+        sketch = compile_run(ROOT / "include", temporary / ("sketch-%d-%d" % (motor, scan)),
+                             sanitize=True, sketch=True, motor=motor, scan=scan)
         if sketch.returncode:
             raise RuntimeError(sketch.stderr + sketch.stdout)
         sketch_results.append(json.loads(sketch.stdout))

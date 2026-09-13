@@ -112,6 +112,32 @@ The scanner consumes at most 1024 bytes per loop and never scans SD while the
 policy requests a motor pulse. Searching a large file at startup can take time;
 output stays off and a later explicit arm is required.
 
+## Sensor states, diagnostics and scan start
+
+The adapter names the sensor's own states instead of folding them into a bus
+error: NOT SCANNING (stopped or unconfigured), SENSOR CONFIG, PROBATION,
+NEED MOTION and SENSOR RESTART. A detected restart re-attaches with
+`begin()` on the next read; nothing is re-armed. A NEED MOTION reading with no
+sensor fault may, when `N36_RESOLVE_PULSES` is greater than zero, receive that
+many blind forward pulses of 100 ms per arm before the controller halts; the
+default is zero, so by default the shaft never moves without a valid angle.
+Choose the budget from the measured shaft speed of the actual installation,
+never from a no-load bench figure.
+
+While the reading is unusable or degraded, and never during PWM, the sketch
+reads the board diagnostic (reset cause, fault count) and the candidate quality
+(dead and suspect sensor counts) once per second and shows them on the display.
+These are read-only selectors; the sketch still sends no command by default.
+
+`N36_SCAN_PERIOD_US`, `N36_SCAN_SETTLE_US`, `N36_SCAN_BLANK_US`,
+`N36_SCAN_STABLE_READS` and `N36_SCAN_INVERTED` describe a qualified scan
+profile. With a profile, pressing B on a NOT SCANNING sensor sends
+configure-fixed and then start, each with receipt checking (matching command
+id and `M2_OK`), one retry with the same id after 500 ms, then failure shown as
+SCAN FAILED. It never arms; a second B press arms once the reading is valid.
+Without a profile (the default) B on a stopped sensor does nothing, and the
+sensor must be configured and started with the host library separately.
+
 ## Software limits, not machine safety ratings
 
 The sample policy caps freshness at 150 ms after the adapter read and also
@@ -164,7 +190,7 @@ The suite covers six speed/inertia combinations (0.4/0.8/1.2 deg/s and
 register cases; unit cases add north wrap, stale data, night, STOP, no rearm,
 bad firmware/status/range, CRC corruption, origin adjustment, device TTL and
 expiry during the second read, and sun-table boundaries. ASan/UBSan check host runs.
-Eight separately compiled gate-removal mutants must fail at runtime, not merely
+Twelve separately compiled gate-removal mutants must fail at runtime, not merely
 fail compilation. `test/validation.json` records the observed result and source
 hashes. Model error/PWM timings are not hardware specifications, all-input
 proof, ESP32 instruction timing or sensor-firmware emulation.

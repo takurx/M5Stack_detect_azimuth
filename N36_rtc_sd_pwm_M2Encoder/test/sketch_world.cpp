@@ -50,7 +50,24 @@ int main() {
     reset(); M5.BtnA.pressed=true; M5.BtnB.pressed=true; loop(); CHECK(fake_pwm==0);
     ++fake_ms; loop(); CHECK(fake_pwm==0 && !tracker.armed());
     CHECK(Wire.command_count==0); // Attaching never changes scan/persistence settings.
-    printf("{\"sketch_checks\":%u,\"motor_enabled_in_stub\":%s,\"max_pulse_ms\":%u,\"esp32_emulated\":false}\n",
-           checks,motor_enabled?"true":"false",maximum);
+    // Diagnostics are read only while the reading is unusable or degraded, never during PWM.
+    reset(); diagnosticFrame(Wire,0x04,3); qualityFrame(Wire,0x003,0x004); Wire.status[7]|=m2enc::Degraded;
+    for(fake_ms=300;fake_ms<2500;++fake_ms)loop();
+    CHECK(diag_ok && diag_reset_cause==0x04 && diag_fault_count==3 && dead_sensors==2 && suspect_sensors==1);
+    CHECK(Wire.command_count==0);
+    // A stopped sensor: B configures and starts only when the build carries a profile; arming needs a second B.
+    reset(); Wire.status[6]=3; Wire.status[25]&=~2;
+    for(fake_ms=300;fake_ms<400;++fake_ms)loop();
+    CHECK(!observation.valid && observation.error==n36::Reason::NotScanning);
+    M5.BtnB.pressed=true; loop();
+    for(fake_ms=401;fake_ms<1000;++fake_ms)loop();
+#if N36_SCAN_PERIOD_US > 0
+    CHECK(Wire.command_count==2 && scan_starter.state()==n36::ScanStarter::Done && observation.valid && !tracker.armed() && fake_pwm==0);
+    M5.BtnB.pressed=true; loop(); CHECK(tracker.armed());
+#else
+    CHECK(Wire.command_count==0 && !tracker.armed() && fake_pwm==0 && scan_starter.state()==n36::ScanStarter::Idle);
+#endif
+    printf("{\"sketch_checks\":%u,\"motor_enabled_in_stub\":%s,\"scan_profile_in_build\":%s,\"max_pulse_ms\":%u,\"esp32_emulated\":false}\n",
+           checks,motor_enabled?"true":"false",N36_SCAN_PERIOD_US>0?"true":"false",maximum);
     return 0;
 }

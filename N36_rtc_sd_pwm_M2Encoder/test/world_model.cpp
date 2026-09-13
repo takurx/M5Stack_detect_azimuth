@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <limits>
 #include "EncoderInput.h"
+#include "ScanControl.h"
 #include "SunTable.h"
 TwoWire Wire;
 uint32_t fake_ms=0, fake_pwm=0, fake_bus_us=0;
@@ -30,6 +31,16 @@ static void adapter_tests() {
     for(uint8_t flag : {uint8_t(m2enc::Probation),uint8_t(m2enc::ConfigurationError),uint8_t(m2enc::NeedMotion)}) {
         registers(bus,120); bus.status[7]|=flag; CHECK(!n36::readEncoder(encoder,0,0).valid);
     }
+    // The sensor's own states are named, not folded into BUS ERROR.
+    registers(bus,120); bus.status[7]|=m2enc::NeedMotion; o=n36::readEncoder(encoder,0,0);
+    CHECK(!o.valid && o.error==n36::Reason::NeedMotion && !o.degraded);
+    registers(bus,120); bus.status[7]|=m2enc::NeedMotion|m2enc::Degraded; o=n36::readEncoder(encoder,0,0);
+    CHECK(!o.valid && o.error==n36::Reason::NeedMotion && o.degraded);
+    registers(bus,120); bus.status[7]|=m2enc::Probation; CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::Probation);
+    registers(bus,120); bus.status[7]|=m2enc::ConfigurationError; CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::SensorConfig);
+    registers(bus,120); bus.status[6]=3; CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::NotScanning);
+    registers(bus,120); bus.status[25]&=~2; CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::NotScanning);
+    registers(bus,120); bus.nack=true; CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::BusError);
     for(uint16_t cell : {uint16_t(1800),uint16_t(65535)}) {
         registers(bus,120); m2enc::em_p16(bus.status.data()+8,cell);
         CHECK(!n36::readEncoder(encoder,0,0).valid);
@@ -94,6 +105,42 @@ static void controller_tests() {
     CHECK(!t.motorOn() && t.reason() == n36::Reason::Stall);
     t.arm(0); t.observe(obs(10, 0)); t.tick(0, sun(12)); CHECK(t.motorOn());
     t.observe(n36::Observation()); t.tick(1, sun(12)); CHECK(!t.motorOn() && !t.armed());
+}
+static void resolve_tests() {
+    n36::Observation need; need.error = n36::Reason::NeedMotion;
+    n36::Tracking off; off.arm(0); off.observe(need); off.tick(0, sun(121));
+    CHECK(!off.motorOn() && !off.armed() && off.reason() == n36::Reason::NeedMotion); // default: no blind motion
+    n36::Policy p; p.resolve_pulses = 2; n36::Tracking t(p); t.arm(0); t.observe(need);
+    unsigned on = 0;
+    for (uint32_t ms = 0; ms <= 3000; ++ms) { t.tick(ms, sun(121)); if (t.motorOn()) ++on; }
+    CHECK(on == 200 && !t.armed() && t.reason() == n36::Reason::NeedMotion && t.resolvePulsesUsed() == 2); // 2 x 100 ms, then halt
+    n36::Tracking fault(p); fault.arm(0); need.degraded = true; fault.observe(need); fault.tick(0, sun(121));
+    CHECK(!fault.motorOn() && !fault.armed()); // a faulty sensor never gets blind pulses
+    need.degraded = false; n36::Tracking resolved(p); resolved.arm(0); resolved.observe(need);
+    resolved.tick(0, sun(121)); CHECK(resolved.motorOn());
+    resolved.observe(obs(120, 50)); resolved.tick(50, sun(121)); CHECK(resolved.motorOn() && resolved.reason() == n36::Reason::Tracking);
+    resolved.arm(3000); CHECK(resolved.resolvePulsesUsed() <= 2); // budget is per arm
+}
+static void scan_tests() {
+    n36::ScanProfile profile; profile.period_us = 20000; profile.settle_us = 2000; profile.blank_us = 500; profile.stable_reads = 2;
+    TwoWire bus; registers(bus, 120); bus.status[6] = 3; bus.status[25] &= ~2; // stopped, unconfigured
+    m2enc::M2Encoder enc(bus); CHECK(enc.begin() == m2enc::Ok);
+    CHECK(n36::readEncoder(enc, 0, 0).error == n36::Reason::NotScanning);
+    n36::ScanStarter disabled; CHECK(!disabled.request(enc, 0) && bus.command_count == 0);
+    n36::ScanStarter s(profile); CHECK(s.request(enc, 0) && s.active() && bus.command_count == 1 && bus.last_op == m2enc::M2_FIXED);
+    m2enc::Reading r; s.service(enc, r, 50); CHECK(s.state() == n36::ScanStarter::Starting && bus.last_op == m2enc::M2_START);
+    s.service(enc, r, 100); CHECK(s.state() == n36::ScanStarter::Done && bus.command_count == 2);
+    CHECK(n36::readEncoder(enc, 100, 0).valid);
+    // Rejected receipt fails, does not retry with a new id.
+    TwoWire rej; registers(rej, 120); rej.status[6] = 3; rej.ack_result = m2enc::M2_MUST_STOP;
+    m2enc::M2Encoder e2(rej); CHECK(e2.begin() == m2enc::Ok); n36::ScanStarter s2(profile); CHECK(s2.request(e2, 0));
+    s2.service(e2, r, 50); CHECK(s2.state() == n36::ScanStarter::Failed && s2.lastResult() == m2enc::M2_MUST_STOP && rej.command_count == 1);
+    // No receipt: one retry with the same id, then failure. Never a third transmission.
+    TwoWire quiet; registers(quiet, 120); quiet.status[6] = 3; quiet.auto_ack = false;
+    m2enc::M2Encoder e3(quiet); CHECK(e3.begin() == m2enc::Ok); n36::ScanStarter s3(profile, 500); CHECK(s3.request(e3, 0));
+    uint16_t first = quiet.last_id;
+    for (uint32_t ms = 50; ms <= 2000; ms += 50) s3.service(e3, r, ms);
+    CHECK(s3.state() == n36::ScanStarter::Failed && quiet.command_count == 2 && quiet.last_id == first);
 }
 static void table_tests() {
     n36::SunRow a, b;
@@ -173,4 +220,4 @@ static void world_tests() {
     printf("{\"world_scenarios\":%u,\"max_tracking_error_deg\":%.6f,\"max_pulse_ms\":%u,\"checks\":%u,\"physical_proven\":false}\n",
            scenarios, max_error, max_pulse, checks);
 }
-int main() { adapter_tests(); controller_tests(); table_tests(); world_tests(); return 0; }
+int main() { adapter_tests(); controller_tests(); resolve_tests(); scan_tests(); table_tests(); world_tests(); return 0; }

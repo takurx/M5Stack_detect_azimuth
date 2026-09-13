@@ -6,7 +6,8 @@ namespace n36 {
 inline float wrap(float a) { a = fmodf(a, 360.0f); return a < 0 ? a + 360.0f : a; }
 inline float distance(float a, float b) { return fabsf(wrap(a - b + 180.0f) - 180.0f); }
 enum class Reason { Ok, Disarmed, BusError, Firmware, NotAbsolute, Stale, NoSun,
-                    Night, Alignment, AtTarget, Tracking, Cooldown, Stall };
+                    Night, Alignment, AtTarget, Tracking, Cooldown, Stall,
+                    NeedMotion, Probation, NotScanning, SensorConfig, Restarted };
 inline const char* name(Reason r) {
     switch (r) {
     case Reason::Ok: return "OK"; case Reason::Disarmed: return "DISARMED"; case Reason::BusError: return "BUS ERROR";
@@ -15,6 +16,9 @@ inline const char* name(Reason r) {
     case Reason::Night: return "NIGHT"; case Reason::Alignment: return "ALIGN MANUALLY";
     case Reason::AtTarget: return "AT TARGET"; case Reason::Tracking: return "TRACKING";
     case Reason::Cooldown: return "PULSE GAP"; case Reason::Stall: return "NO MOTION";
+    case Reason::NeedMotion: return "NEED MOTION"; case Reason::Probation: return "PROBATION";
+    case Reason::NotScanning: return "NOT SCANNING"; case Reason::SensorConfig: return "SENSOR CONFIG";
+    case Reason::Restarted: return "SENSOR RESTART";
     }
     return "UNKNOWN";
 }
@@ -28,6 +32,9 @@ struct Observation {
 struct SunTarget { float azimuth = NAN, elevation = NAN; bool valid = false; };
 struct Policy {
     uint32_t sample_ttl_ms = 150, pulse_ms = 200, gap_ms = 800, stall_on_ms = 2000;
+    // Blind forward pulses allowed per arm while the sensor reports NEED MOTION and no
+    // sensor fault. 0 disables them (default): the shaft never moves without a valid angle.
+    uint8_t resolve_pulses = 0; uint32_t resolve_pulse_ms = 100;
     float deadband_deg = 0.4f, max_forward_deg = 5.0f, motion_deg = 0.5f; // motion_deg = 2.5 sensor cells of 0.2 deg
 };
 // One-way PWM, as in N34. No automatic homing, reverse, IMU fallback or restart.
@@ -35,6 +42,7 @@ class Tracking {
     Policy policy_;
     Observation observation_;
     bool armed_ = false, on_ = false, gap_ = false, observed_ = false;
+    uint8_t resolves_ = 0;
     uint32_t pulse_at_ = 0, stopped_at_ = 0, last_tick_ = 0, on_ms_ = 0;
     float anchor_ = NAN;
     Reason reason_ = Reason::Disarmed;
@@ -49,14 +57,26 @@ public:
     void arm(uint32_t now) {
         if (armed_) return; // Repeated B presses must not extend PWM or clear the stall budget.
         // The next tick must validate every input before producing output.
-        armed_ = true; on_ = false; gap_ = false; on_ms_ = 0;
+        armed_ = true; on_ = false; gap_ = false; on_ms_ = 0; resolves_ = 0;
         anchor_ = NAN; last_tick_ = now; reason_ = Reason::Disarmed;
     }
     void tick(uint32_t now, const SunTarget& sun) {
         uint32_t elapsed = now - last_tick_; last_tick_ = now;
         if (on_) on_ms_ += elapsed;
         if (!armed_) { on_ = false; return; }
-        if (!observed_ || !observation_.valid) { halt(observation_.error, now); return; }
+        if (!observed_ || !observation_.valid) {
+            // Bounded blind resolve: only NEED MOTION, only without a sensor fault, only within budget.
+            if (observed_ && observation_.error == Reason::NeedMotion && !observation_.degraded &&
+                resolves_ < policy_.resolve_pulses) {
+                if (on_ && now - pulse_at_ >= policy_.resolve_pulse_ms) { on_ = false; stopped_at_ = now; gap_ = true; ++resolves_; }
+                else if (!on_) {
+                    if (gap_ && now - stopped_at_ < policy_.gap_ms) { reason_ = Reason::Cooldown; return; }
+                    on_ = true; pulse_at_ = now;
+                }
+                reason_ = Reason::NeedMotion; return;
+            }
+            halt(observation_.error, now); return;
+        }
         if (now - observation_.at_ms >= policy_.sample_ttl_ms) { halt(Reason::Stale, now); return; }
         if (now - observation_.at_ms >= observation_.valid_for_ms) { halt(Reason::Stale, now); return; }
         if (!sun.valid || !isfinite(sun.azimuth) || !isfinite(sun.elevation) ||
@@ -82,6 +102,7 @@ public:
         reason_ = Reason::Tracking;
     }
     bool motorOn() const { return on_; }
+    uint8_t resolvePulsesUsed() const { return resolves_; }
     bool armed() const { return armed_; }
     Reason reason() const { return reason_; }
 };

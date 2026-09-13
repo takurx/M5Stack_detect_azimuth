@@ -10,7 +10,14 @@ inline Observation readEncoder(m2enc::M2Encoder& encoder, uint32_t started_ms, f
     m2enc::Reading r{};
     const m2enc::Result result = encoder.poll(r);
     if (result == m2enc::UnsupportedProtocol) { o.error = Reason::Firmware; return o; }
+    if (result == m2enc::DeviceRestarted) { o.error = Reason::Restarted; return o; }
     if (result != m2enc::Ok) return o;
+    // Name the sensor's own state before treating the sample as merely non-absolute.
+    o.degraded = (r.core_status & (m2enc::Degraded | m2enc::BitFault)) != 0;
+    if (!r.configured || r.state != 2) { o.error = Reason::NotScanning; return o; }
+    if (r.core_status & m2enc::ConfigurationError) { o.error = Reason::SensorConfig; return o; }
+    if (r.core_status & m2enc::Probation) { o.error = Reason::Probation; return o; }
+    if (r.core_status & m2enc::NeedMotion) { o.error = Reason::NeedMotion; return o; }
     m2enc::Position p;
     if (!r.usable(micros()) || encoder.readPosition(p) != m2enc::Ok) return o;
     const uint32_t now_us = micros();
