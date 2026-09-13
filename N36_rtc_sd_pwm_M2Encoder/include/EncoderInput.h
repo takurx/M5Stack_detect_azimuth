@@ -3,20 +3,30 @@
 #include "Tracking.h"
 
 namespace n36 {
-// Adapter uses the published library, without sensor firmware or code tables.
-// Its 0x07 register file has no CRC/age token: successful transport is NOT
-// proof of sensor freshness or physical correctness. Reject other protocols.
+// Use the current CRC-checked host API and charge both reads against their TTL.
+// Device origin and an explicit host installation offset are separate.
 inline Observation readEncoder(m2enc::M2Encoder& encoder, uint32_t started_ms, float offset_deg) {
     Observation o; o.at_ms = started_ms;
     m2enc::Reading r{};
-    if (!encoder.read(r)) return o; // Never reuse a previous successful reading.
-    if (r.fw_version != 0x07) { o.error = Reason::Firmware; return o; }
-    const uint8_t forbidden = m2enc::ST_CFG_ERROR | m2enc::ST_PROBATION | m2enc::ST_NEED_MOTION;
-    if (!r.valid || r.cells >= 1800 || r.n_cand != 1 || r.suspect ||
-        (r.status & forbidden) || !isfinite(r.deg) || !isfinite(offset_deg)) {
+    const m2enc::Result result = encoder.poll(r);
+    if (result == m2enc::UnsupportedProtocol) { o.error = Reason::Firmware; return o; }
+    if (result != m2enc::Ok) return o;
+    m2enc::Position p;
+    if (!r.usable(micros()) || encoder.readPosition(p) != m2enc::Ok) return o;
+    const uint32_t now_us = micros();
+    float degrees;
+    if (!r.usable(now_us) || !p.angleDegrees(now_us, degrees) || !isfinite(offset_deg)) {
         o.error = Reason::NotAbsolute; return o;
     }
-    o.degrees = wrap(r.deg + offset_deg); o.degraded = r.degraded || r.dead;
+    const uint32_t status_left = r.valid_for_us - uint32_t(now_us - r.received_since_us);
+    const uint32_t position_left = p.valid_for_us - uint32_t(now_us - p.received_since_us);
+    const uint32_t remaining = status_left < position_left ? status_left : position_left;
+    // Round down and reserve one millisecond for micros/millis phase alignment.
+    if (remaining < 2000) { o.error = Reason::Stale; return o; }
+    o.at_ms = millis();
+    o.valid_for_ms = remaining / 1000 - 1;
+    o.degrees = wrap(degrees + offset_deg);
+    o.degraded = (r.core_status & (m2enc::Degraded | m2enc::BitFault)) != 0;
     o.valid = true; o.error = Reason::AtTarget; return o;
 }
 } // namespace n36

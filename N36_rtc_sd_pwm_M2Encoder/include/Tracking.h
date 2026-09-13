@@ -21,6 +21,7 @@ inline const char* name(Reason r) {
 struct Observation {
     float degrees = NAN;
     uint32_t at_ms = 0;
+    uint32_t valid_for_ms = 150;
     Reason error = Reason::BusError;
     bool valid = false, degraded = false;
 };
@@ -57,6 +58,7 @@ public:
         if (!armed_) { on_ = false; return; }
         if (!observed_ || !observation_.valid) { halt(observation_.error, now); return; }
         if (now - observation_.at_ms >= policy_.sample_ttl_ms) { halt(Reason::Stale, now); return; }
+        if (now - observation_.at_ms >= observation_.valid_for_ms) { halt(Reason::Stale, now); return; }
         if (!sun.valid || !isfinite(sun.azimuth) || !isfinite(sun.elevation) ||
             sun.azimuth < 0 || sun.azimuth >= 360 || sun.elevation < -90 || sun.elevation > 90) {
             halt(Reason::NoSun, now); return;

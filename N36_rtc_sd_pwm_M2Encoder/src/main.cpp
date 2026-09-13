@@ -64,8 +64,8 @@ void setup() {
     M5.begin(); M5.Power.begin(); Serial.begin(115200);
     ledcSetup(PWM_CHANNEL, 100, 8); ledcAttachPin(PWM_PIN, PWM_CHANNEL); stop();
     Wire.begin(21, 22); Wire.setClock(100000); Wire.setTimeOut(30);
-    // begin() establishes the bus pointer; each subsequent read is validated.
-    encoder.begin(Wire, 0x36);
+    // Verify protocol/core and attach to command state. No automatic scan start.
+    if (encoder.begin() != m2enc::Ok) Serial.println("No compatible M2 device; tracking stays invalid.");
     rtc_ok = rtc.begin() && !rtc.lostPower() && rtc.isrunning();
     if (rtc_ok) { DateTime now = rtc.now(); rtc_ok = now.isValid(); utc = now.unixtime(); }
     bno_ok = bno.begin();
