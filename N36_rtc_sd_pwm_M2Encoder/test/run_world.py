@@ -39,7 +39,10 @@ def compile_run(include, output, sanitize=False, sketch=False, motor=False, scan
 mutants = {
     "stale_gate_removed": ("Tracking.h", "now - observation_.at_ms >= policy_.sample_ttl_ms", "false"),
     "night_gate_removed": ("Tracking.h", "sun.elevation <= 0", "false"),
-    "pulse_deadline_removed": ("Tracking.h", "now - pulse_at_ >= policy_.pulse_ms", "false"),
+    "pulse_deadline_removed": ("Tracking.h", "now - pulse_at_ >= pulse_len_", "false"),
+    "pulse_length_uncapped": ("Tracking.h", "if (x > policy_.pulse_ms) x = policy_.pulse_ms;", ""),
+    "overshoot_wait_unbounded": ("Tracking.h", "over <= policy_.wait_deg", "over >= 0"),
+    "settling_tolerance_unbounded": ("Tracking.h", "if (settling && observed_ &&", "if ((settling || true) && observed_ &&"),
     "stall_gate_removed": ("Tracking.h", "on_ms_ >= policy_.stall_on_ms", "false"),
     "device_ttl_gate_removed": ("Tracking.h", "now - observation_.at_ms >= observation_.valid_for_ms", "false"),
     "status_expiry_between_reads_ignored": ("EncoderInput.h", "!r.usable(now_us)", "false"),

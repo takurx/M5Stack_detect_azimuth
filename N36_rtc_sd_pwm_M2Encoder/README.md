@@ -138,11 +138,43 @@ SCAN FAILED. It never arms; a second B press arms once the reading is valid.
 Without a profile (the default) B on a stopped sensor does nothing, and the
 sensor must be configured and started with the host library separately.
 
+## Pulse sizing, overshoot and settling
+
+The pulse length is learned, not assumed. Each arm starts with the 20 ms
+minimum pulse; after the 800 ms gap the encoder reports how far the shaft
+moved, the controller keeps a degrees-per-millisecond estimate, and the next
+pulse is sized to 70 % of the remaining angle, never above the 200 ms maximum.
+A pulse with no measurable motion (under one 0.2 degree cell) doubles the next
+one. Overshoot up to 2 degrees becomes WAIT SUN: the motor stays off, the
+controller stays armed, and tracking resumes when the sun passes. Beyond that,
+ALIGN MANUALLY. With a fast shaft the reachable accuracy is bounded by the
+minimum pulse times the loaded shaft speed, which must be measured on the
+installation.
+
+If the sensor loses lock during a pulse (NEED MOTION or a non-absolute sample)
+the pulse ends at once and the controller waits out the gap; an unusable
+reading after the gap still halts. Bus, firmware and scan-state errors halt
+immediately as before.
+
+## Flight log and task watchdog
+
+`/n36_log.csv` on the SD card receives a header with the ESP32 reset reason and
+one row per encoder sample: time, UTC, angle, validity, controller reason,
+target, PWM state, pulse length, learned rate, resolve pulses, reset cause,
+fault count and dead sensors. Rows are buffered in RAM and written only while
+no pulse is requested; a full buffer drops the oldest rows. From the angle
+column during and after pulses the loaded shaft speed can be read.
+
+The ESP32 task watchdog (`N36_WDT_S`, 3 s) reboots the board if `loop()` stops
+running. After a reboot GPIO 5 has no LEDC output until `setup()` configures
+it, and `setup()` drives it LOW first. This narrows the software-stall case; it
+is not an independent stop circuit.
+
 ## Software limits, not machine safety ratings
 
 The sample policy caps freshness at 150 ms after the adapter read and also
 honors the shorter remaining device TTL. Both I2C reads are charged against
-that TTL, rounded down with a 1 ms phase margin. It uses 200 ms pulses,
+that TTL, rounded down with a 1 ms phase margin. It uses learned pulses of 20 to 200 ms,
 800 ms minimum pulse gaps, 0.4 degree deadband, and a no-motion latch after
 2000 ms cumulative requested PWM with less than 0.5 degree progress. The initial
 1000 ms no-motion setting falsely stopped the low-speed/backlash model; the
@@ -186,11 +218,14 @@ it never copies the target into the measurement. The BNO stub deliberately
 disagrees with the encoder to check that it cannot override the feedback.
 
 The suite covers six speed/inertia combinations (0.4/0.8/1.2 deg/s and
-20/80 ms, initial 0.1 degree backlash), NACK/short-read recovery and jam/frozen
-register cases; unit cases add north wrap, stale data, night, STOP, no rearm,
+20/80 ms, initial 0.1 degree backlash), four fast-shaft cases (10 and 40 deg/s
+with an assumed 5 deg/s sensor lock ceiling, with and without re-lock at rest:
+with re-lock the learned pulse keeps the error inside the wait band, without it
+the default policy halts on NEED MOTION after bounded motion), NACK/short-read
+recovery and jam/frozen register cases; unit cases add north wrap, stale data, night, STOP, no rearm,
 bad firmware/status/range, CRC corruption, origin adjustment, device TTL and
 expiry during the second read, and sun-table boundaries. ASan/UBSan check host runs.
-Twelve separately compiled gate-removal mutants must fail at runtime, not merely
+Fifteen separately compiled gate-removal mutants must fail at runtime, not merely
 fail compilation. `test/validation.json` records the observed result and source
 hashes. Model error/PWM timings are not hardware specifications, all-input
 proof, ESP32 instruction timing or sensor-firmware emulation.

@@ -2,29 +2,29 @@
   "result": "PASS",
   "library_commit": "cdd97b57c1b38dcca078f30dc8d1d1c29dec77a4",
   "world": {
-    "world_scenarios": 10,
+    "world_scenarios": 14,
     "max_tracking_error_deg": 0.380005,
     "max_pulse_ms": 200,
-    "checks": 1980113,
+    "checks": 2220142,
     "physical_proven": false
   },
   "sketch": [
     {
-      "sketch_checks": 29727,
+      "sketch_checks": 29730,
       "motor_enabled_in_stub": false,
       "scan_profile_in_build": false,
       "max_pulse_ms": 0,
       "esp32_emulated": false
     },
     {
-      "sketch_checks": 29727,
+      "sketch_checks": 29730,
       "motor_enabled_in_stub": true,
       "scan_profile_in_build": false,
       "max_pulse_ms": 200,
       "esp32_emulated": false
     },
     {
-      "sketch_checks": 29728,
+      "sketch_checks": 29731,
       "motor_enabled_in_stub": false,
       "scan_profile_in_build": true,
       "max_pulse_ms": 0,
@@ -36,6 +36,9 @@
     "stale_gate_removed",
     "night_gate_removed",
     "pulse_deadline_removed",
+    "pulse_length_uncapped",
+    "overshoot_wait_unbounded",
+    "settling_tolerance_unbounded",
     "stall_gate_removed",
     "device_ttl_gate_removed",
     "status_expiry_between_reads_ignored",
@@ -51,19 +54,22 @@
   "host_compiler": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
   "source_sha256": {
     "include/EncoderInput.h": "e423db4e005860066a607b567d226f571fade39da5a223defb4d7c102b65f74a",
+    "include/FlightLog.h": "217ea4dd10a51a576e1cefc18ff45e60f780b37c42fb035460a8907ad3280e61",
     "include/ScanControl.h": "39385fd99e19a1be5f6c4a9b337c5630c5971d07931c3db19ab2d569cda5d991",
     "include/SunTable.h": "fc575d2ff50bf439c4a695babb8a51197a85004ce318d6d0e8418986f4ce97f8",
-    "include/Tracking.h": "a3dc29ea4b922e206f3037dac402d2f6402c16b19a0e23d31205d094c38c1737",
+    "include/Tracking.h": "0bb4c5dc6573db14775c755b9bd4a8f82f3c032558b0aa468e19c443b6ea280e",
     "platformio.ini": "e544d0cb845110892b760fd874dfe955f122aa6db13e0f8fc9ebf3980ad4b778",
-    "src/main.cpp": "d930d8cf0d9660656abf5c8c15ffddb6a1284b1fec6de529094d3d958af9137a",
-    "test/run_world.py": "6a293a58fef8e98903897870494dfd3e930c5bb630849d507fda7e15e95fb53d",
-    "test/sketch_world.cpp": "27e436b21d997dbebfcd2c9924a05ef9c9d28d83aabfa35dd6d55cd28e6c9378",
+    "src/main.cpp": "f3057b37c289977267dde86dd493b43810421b7bee58bfb005938bc535e0ebe2",
+    "test/run_world.py": "ae8bb0b394f79cb39783ca47467cb51d35eba28082eb86df31d4f1da073006d6",
+    "test/sketch_world.cpp": "c82663cff0429d085e08fb2a1912a2717ce628299eba72f9d8fe20ce931315f0",
     "test/stubs/Adafruit_BNO055.h": "8e3ed1e1a03dcb469d91c59e1db45211b3c48550a14433227538fe2d85795153",
-    "test/stubs/Arduino.h": "c070abd458a068109862bf343e92a2aef11766d7bab28a355e1fe9ab5b62938c",
-    "test/stubs/M5Stack.h": "5e5b8b2d501111742ca85117764b4dc3236d41e65ad7c6a6e48a77459d2aa17b",
+    "test/stubs/Arduino.h": "e5b807dd0a42c9df8c708dac6bacf6ecfa24987c16943c01a5a6e5befa71e51a",
+    "test/stubs/M5Stack.h": "0de6bbcd7a6dc17489360cff4588d6fe3cf14cecd8689896e6b47e11f7993949",
     "test/stubs/RTClib.h": "cc7140992fd3386104184fd1001948520a5651fca2aea710526b9d0ae94db58f",
     "test/stubs/SensorFrame.h": "23f59dcf7c07db50305a5b126c25bef175cb02040698d7e22bbc28fdc13a9273",
     "test/stubs/Wire.h": "693dfcb0c4c60a5b76a98e20bafe7050739283bdec87a9b6d0bfb12744e707e8",
-    "test/world_model.cpp": "7a0b50225ca0f3e450b71a945f1b18d9b2cf03f603e90b4eb133243da47ad714"
+    "test/stubs/esp_system.h": "5878b2c3e5cc20258320c8aab4c290c27c1825d2005c3f8c2567656f046764d7",
+    "test/stubs/esp_task_wdt.h": "e658b0cef967ee094c5535f513d7df0fd5f4f11a688c2b8aee2ff6fbd061dfaf",
+    "test/world_model.cpp": "b2682d15a0e67c136a339cd39a07df6a73cf6cb3727835eb0f6b95b83ba6efb3"
   }
 }

@@ -5,7 +5,7 @@
 #include "ScanControl.h"
 #include "SunTable.h"
 TwoWire Wire;
-uint32_t fake_ms=0, fake_pwm=0, fake_bus_us=0;
+uint32_t fake_ms=0, fake_pwm=0, fake_bus_us=0; int fake_reset_reason=0;
 #include "SensorFrame.h"
 static unsigned checks = 0;
 #define CHECK(x) do { ++checks; if (!(x)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #x); exit(1); } } while (0)
@@ -71,17 +71,30 @@ static void adapter_tests() {
 }
 static void controller_tests() {
     n36::Tracking t; t.observe(obs(359, 0)); t.tick(0, sun(1)); CHECK(!t.motorOn());
-    t.arm(0); t.tick(0, sun(1)); CHECK(t.motorOn());
-    t.observe(obs(359, 100)); t.tick(199, sun(1)); CHECK(t.motorOn());
-    t.arm(199); // Repeated arm must not restart the 200 ms pulse.
-    t.tick(200, sun(1)); CHECK(!t.motorOn());
-    t.observe(obs(359, 999)); t.tick(999, sun(1)); CHECK(!t.motorOn());
-    t.tick(1000, sun(1)); CHECK(t.motorOn());
-    t.stop(1001); t.tick(1002, sun(1)); CHECK(!t.motorOn() && !t.armed());
-    t.arm(1002); t.observe(obs(2, 1002)); t.tick(1002, sun(1));
-    CHECK(!t.motorOn() && t.reason() == n36::Reason::Alignment);
+    t.arm(0); t.tick(0, sun(1)); CHECK(t.motorOn() && t.pulseLengthMs() == 20); // adaptive: first pulse is the minimum
+    t.observe(obs(359, 10)); t.tick(19, sun(1)); CHECK(t.motorOn());
+    t.arm(19); // Repeated arm must not restart the pulse.
+    t.tick(20, sun(1)); CHECK(!t.motorOn());
+    t.observe(obs(359, 819)); t.tick(819, sun(1)); CHECK(!t.motorOn() && t.reason() == n36::Reason::Cooldown);
+    t.tick(820, sun(1)); CHECK(t.motorOn() && t.pulseLengthMs() == 40); // no measurable motion: the pulse doubles
+    t.stop(821); t.tick(822, sun(1)); CHECK(!t.motorOn() && !t.armed());
+    // Overshoot: within wait_deg the controller waits for the sun, beyond it ALIGN MANUALLY.
+    t.arm(822); t.observe(obs(2, 822)); t.tick(822, sun(1));
+    CHECK(!t.motorOn() && t.armed() && t.reason() == n36::Reason::WaitSun);
+    t.observe(obs(2, 900)); t.tick(900, sun(2.6f)); CHECK(t.motorOn()); // the sun passed: tracking resumes
+    t.stop(901); t.arm(901); t.observe(obs(4, 901)); t.tick(901, sun(1));
+    CHECK(!t.motorOn() && !t.armed() && t.reason() == n36::Reason::Alignment);
+    // Learned rate sizes the next pulse to 70 % of the remaining angle, clamped to [min, max].
+    n36::Tracking l; l.arm(0); l.observe(obs(10, 0)); l.tick(0, sun(14)); CHECK(l.motorOn());
+    l.observe(obs(10.4f, 20)); l.tick(20, sun(14)); CHECK(!l.motorOn());       // 0.4 deg in 20 ms = 0.02 deg/ms
+    l.observe(obs(10.4f, 820)); l.tick(820, sun(14));
+    CHECK(l.motorOn() && fabs(l.rateDegPerMs() - 0.02f) < 1e-4f && l.pulseLengthMs() == 126); // 0.7 * 3.6 / 0.02
+    l.observe(obs(13.9f, 946)); l.tick(946, sun(14)); l.observe(obs(13.9f, 1746)); l.tick(1746, sun(14));
+    CHECK(!l.motorOn() && l.reason() == n36::Reason::AtTarget); // 0.1 deg short is inside the deadband
+    n36::Policy fixed; fixed.adaptive = false; n36::Tracking f(fixed); f.arm(0); f.observe(obs(10, 0)); f.tick(0, sun(14));
+    CHECK(f.motorOn() && f.pulseLengthMs() == 200);
     auto long_lived=obs(10,0); long_lived.valid_for_ms=500;
-    t.arm(0); t.observe(long_lived); t.tick(149, sun(11)); CHECK(t.motorOn());
+    t.arm(0); t.observe(long_lived); t.tick(10, sun(11)); CHECK(t.motorOn());
     t.tick(150, sun(11)); CHECK(!t.motorOn() && t.reason() == n36::Reason::Stale);
     t.observe(obs(10, 151)); t.tick(151, sun(11)); CHECK(!t.armed()); // No auto-restart.
     for (int mode = 0; mode < 4; ++mode) {
@@ -96,9 +109,9 @@ static void controller_tests() {
     t.stop(0);
     t.arm(UINT32_MAX - 99); t.observe(obs(10, UINT32_MAX - 99));
     t.tick(UINT32_MAX - 99, sun(11)); CHECK(t.motorOn());
-    t.observe(obs(10, 0)); t.tick(100, sun(11)); CHECK(!t.motorOn()); // 200 ms across wrap.
+    t.observe(obs(10, 0)); t.tick(100, sun(11)); CHECK(!t.motorOn()); // pulse ended across the wrap.
     t.stop(100); t.arm(0);
-    for (uint32_t ms = 0; ms <= 12000; ms += 10) {
+    for (uint32_t ms = 0; ms <= 20000; ms += 10) {
         if (ms % 100 == 0 && t.armed()) t.arm(ms);
         t.observe(obs(10, ms)); t.tick(ms, sun(12));
     }
@@ -118,8 +131,23 @@ static void resolve_tests() {
     CHECK(!fault.motorOn() && !fault.armed()); // a faulty sensor never gets blind pulses
     need.degraded = false; n36::Tracking resolved(p); resolved.arm(0); resolved.observe(need);
     resolved.tick(0, sun(121)); CHECK(resolved.motorOn());
-    resolved.observe(obs(120, 50)); resolved.tick(50, sun(121)); CHECK(resolved.motorOn() && resolved.reason() == n36::Reason::Tracking);
+    resolved.observe(obs(120, 50)); resolved.tick(50, sun(121)); CHECK(!resolved.motorOn() && resolved.reason() == n36::Reason::Cooldown); // valid angle: the blind pulse ends
+    resolved.observe(obs(120, 900)); resolved.tick(900, sun(121)); CHECK(resolved.motorOn() && resolved.reason() == n36::Reason::Tracking);
     resolved.arm(3000); CHECK(resolved.resolvePulsesUsed() <= 2); // budget is per arm
+}
+static void settling_tests() {
+    n36::Observation need; need.error = n36::Reason::NeedMotion;
+    n36::Tracking t; t.arm(0); t.observe(obs(120, 0)); t.tick(0, sun(121)); CHECK(t.motorOn());
+    t.observe(obs(120.3f, 20)); t.tick(20, sun(121)); CHECK(!t.motorOn());
+    t.observe(need); t.tick(100, sun(121)); CHECK(t.armed() && t.reason() == n36::Reason::Cooldown); // lock lost while coasting: wait
+    t.tick(819, sun(121)); CHECK(t.armed());
+    t.tick(820, sun(121)); CHECK(!t.armed() && t.reason() == n36::Reason::NeedMotion);           // still lost after the gap: halt
+    n36::Tracking m; m.arm(0); m.observe(obs(120, 0)); m.tick(0, sun(121)); CHECK(m.motorOn());
+    m.observe(need); m.tick(10, sun(121)); CHECK(!m.motorOn() && m.armed() && m.reason() == n36::Reason::Cooldown); // lock lost mid-pulse: motor off at once
+    m.observe(obs(120.4f, 900)); m.tick(900, sun(121)); CHECK(m.motorOn()); // re-locked after the gap: tracking resumes
+    n36::Tracking b; b.arm(0); b.observe(obs(120, 0)); b.tick(0, sun(121)); b.observe(obs(120.3f, 20)); b.tick(20, sun(121));
+    n36::Observation bus; bus.error = n36::Reason::BusError; b.observe(bus); b.tick(100, sun(121));
+    CHECK(!b.armed() && b.reason() == n36::Reason::BusError); // a bus error is never "settling"
 }
 static void scan_tests() {
     n36::ScanProfile profile; profile.period_us = 20000; profile.settle_us = 2000; profile.blank_us = 500; profile.stable_reads = 2;
@@ -166,6 +194,16 @@ static void table_tests() {
 }
 // Independent physical state: only PWM drives angle. Sun/IMU do not assign
 // encoder position. A quantized register-file model supplies the REAL library.
+// Encoder lock model: above `ceiling` deg/s the single-LED scan cannot follow and the sensor
+// reports NEED MOTION; with rest_resolves it re-locks after 100 ms at rest, otherwise never
+// without slow motion. Both are assumptions to exercise the host policy, not firmware behavior.
+struct LockModel {
+    double ceiling = 5.0; bool rest_resolves = true, locked = true; unsigned rest_ms = 0;
+    void observe(double velocity, unsigned dt_ms) {
+        if (fabs(velocity) > ceiling) { locked = false; rest_ms = 0; return; }
+        if (!locked) { if (fabs(velocity) < .05) rest_ms += dt_ms; else rest_ms = 0; if (rest_resolves && rest_ms >= 100) locked = true; }
+    }
+};
 struct Plant {
     double angle = 120, velocity = 0, rate = .8, tau = .05, slack = .1;
     bool jammed = false;
@@ -179,6 +217,29 @@ struct Plant {
 };
 static void world_tests() {
     unsigned scenarios = 0; double max_error = 0; unsigned max_pulse = 0;
+    // Fast plants: the pulse length is learned from the encoder; accuracy is bounded by min_pulse x speed.
+    for (double rate : {10.0, 40.0}) for (bool rest_resolves : {true, false}) {
+        Plant plant; plant.rate = rate; plant.tau = .05; LockModel lock; lock.rest_resolves = rest_resolves;
+        TwoWire bus; registers(bus, 120); m2enc::M2Encoder enc(bus); CHECK(enc.begin()==m2enc::Ok);
+        n36::Tracking tracking; tracking.arm(0); double max_err = 0, start = plant.angle; unsigned pulses = 0; bool was_on = false;
+        for (uint32_t ms = 0; ms <= 60000; ++ms) {
+            fake_ms = ms; plant.step(tracking.motorOn()); lock.observe(plant.velocity, 1);
+            auto target = sun(float(121 + .003 * ms / 1000.0));
+            if (ms % 50 == 0) { registers(bus, plant.angle); if (!lock.locked) bus.status[7] |= m2enc::NeedMotion; tracking.observe(n36::readEncoder(enc, ms, 0)); }
+            tracking.tick(ms, target);
+            if (tracking.motorOn() && !was_on) ++pulses; was_on = tracking.motorOn();
+            CHECK(tracking.pulseLengthMs() <= 200);
+            if (ms > 20000 && tracking.armed()) { double e = n36::distance(plant.angle, target.azimuth); if (e > max_err) max_err = e; }
+        }
+        if (rest_resolves) {
+            // Re-lock at rest: the controller keeps tracking; the error stays within the wait band and never ALIGN MANUALLY.
+            CHECK(tracking.armed() && max_err < 2.0);
+        } else {
+            // No re-lock: the first pulse breaks the lock, the default policy halts on NEED MOTION with no blind motion.
+            CHECK(!tracking.armed() && tracking.reason() == n36::Reason::NeedMotion && pulses <= 3 && plant.angle - start < 2.0);
+        }
+        ++scenarios;
+    }
     for (double rate : {.4, .8, 1.2}) for (double inertia : {.02, .08}) {
         Plant plant; plant.rate = rate; plant.tau = inertia;
         TwoWire bus; registers(bus, plant.angle); m2enc::M2Encoder enc(bus); CHECK(enc.begin()==m2enc::Ok);
@@ -210,7 +271,7 @@ static void world_tests() {
     for (bool frozen : {false, true}) {
         Plant plant; plant.jammed = !frozen; TwoWire bus; registers(bus, 120);
         m2enc::M2Encoder enc(bus); CHECK(enc.begin()==m2enc::Ok); n36::Tracking tracking; tracking.arm(0);
-        for (uint32_t ms = 0; ms < 12000; ++ms) {
+        for (uint32_t ms = 0; ms < 20000; ++ms) {
             fake_ms=ms; plant.step(tracking.motorOn());
             if (ms % 50 == 0) { registers(bus, frozen ? 120 : plant.angle); tracking.observe(n36::readEncoder(enc, ms, 0)); }
             tracking.tick(ms, sun(122));
@@ -220,4 +281,4 @@ static void world_tests() {
     printf("{\"world_scenarios\":%u,\"max_tracking_error_deg\":%.6f,\"max_pulse_ms\":%u,\"checks\":%u,\"physical_proven\":false}\n",
            scenarios, max_error, max_pulse, checks);
 }
-int main() { adapter_tests(); controller_tests(); resolve_tests(); scan_tests(); table_tests(); world_tests(); return 0; }
+int main() { adapter_tests(); controller_tests(); resolve_tests(); settling_tests(); scan_tests(); table_tests(); world_tests(); return 0; }

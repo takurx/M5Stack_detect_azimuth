@@ -5,7 +5,10 @@
 #include <RTClib.h>
 #include <Adafruit_BNO055.h>
 #include <M2Encoder.h>
+#include <esp_task_wdt.h>
+#include <esp_system.h>
 #include "EncoderInput.h"
+#include "FlightLog.h"
 #include "ScanControl.h"
 #include "SunTable.h"
 
@@ -38,6 +41,11 @@
 #ifndef N36_RESOLVE_PULSES
 #define N36_RESOLVE_PULSES 0
 #endif
+// Task watchdog: if loop() stops running for this long the ESP32 panics and reboots; the reboot
+// leaves GPIO 5 unconfigured (no LEDC output) and setup() drives it LOW first. Software only.
+#ifndef N36_WDT_S
+#define N36_WDT_S 3
+#endif
 static constexpr uint8_t PWM_PIN = 5, PWM_CHANNEL = 0, PWM_DUTY = 16;
 static constexpr bool motor_enabled = N36_ENABLE_MOTOR && N36_ALIGNMENT_CONFIRMED;
 RTC_PCF8563 rtc;
@@ -53,7 +61,9 @@ n36::ScanStarter scan_starter(scanProfile());
 n36::SunTable sun_table;
 n36::Observation observation;
 n36::SunTarget target;
-File sun_file;
+File sun_file, log_file;
+n36::FlightLog<File> flight_log;
+n36::Reason logged_reason = n36::Reason::Disarmed;
 bool rtc_ok = false, bno_ok = false;
 uint32_t utc = 0, clock_at = 0, encoder_at = 0, display_at = 0, bno_at = 0, diag_at = 0;
 bool diag_ok = false, quality_ok = false; uint8_t diag_reset_cause = 0; uint16_t diag_fault_count = 0, dead_sensors = 0, suspect_sensors = 0;
@@ -108,12 +118,18 @@ void setup() {
     if (rtc_ok) { DateTime now = rtc.now(); rtc_ok = now.isValid(); utc = now.unixtime(); }
     bno_ok = bno.begin();
     if (bno_ok) bno.setExtCrystalUse(false);
-    if (SD.begin(TFCARD_CS_PIN, SPI, 40000000)) sun_file = SD.open("/info_sun_angle.csv", FILE_READ);
+    if (SD.begin(TFCARD_CS_PIN, SPI, 40000000)) {
+        sun_file = SD.open("/info_sun_angle.csv", FILE_READ);
+        log_file = SD.open("/n36_log.csv", FILE_APPEND);
+        if (log_file) { char head[48]; snprintf(head, sizeof head, "# boot reset_reason=%d\n", int(esp_reset_reason())); log_file.print(head); n36::FlightLog<File>::header(log_file); }
+    }
+    esp_task_wdt_init(N36_WDT_S, true); esp_task_wdt_add(NULL);
     M5.Lcd.setTextSize(2); M5.Lcd.clear();
     Serial.println("N36: A/C stop; B arm only with valid inputs. Default: monitor only.");
 }
 
 void loop() {
+    esp_task_wdt_reset();
     M5.update();
     // STOP wins if several buttons arrive together.
     bool a = M5.BtnA.wasPressed(), b = M5.BtnB.wasPressed(), c = M5.BtnC.wasPressed();
@@ -136,6 +152,11 @@ void loop() {
         else observation = n36::readEncoder(encoder, now, N36_ENCODER_OFFSET_DEG);
         tracker.observe(observation);
         tracker.tick(millis(), target); output();
+        n36::LogRow row; row.ms = now; row.utc = utc; row.angle = observation.degrees; row.valid = observation.valid;
+        row.reason = uint8_t(tracker.reason()); row.target = target.azimuth; row.pwm = motor_enabled && tracker.motorOn();
+        row.pulse_ms = uint16_t(tracker.pulseLengthMs()); row.rate = tracker.rateDegPerMs(); row.resolves = tracker.resolvePulsesUsed();
+        row.reset_cause = diag_reset_cause; row.fault = diag_fault_count; row.dead = uint8_t(dead_sensors);
+        flight_log.record(row); logged_reason = tracker.reason();
     }
     if (tracker.motorOn()) return; // Do not hide an SD/LCD/BNO stall inside PWM.
 
@@ -150,6 +171,7 @@ void loop() {
     }
     serviceSun();
     serviceDiagnostics(now);
+    if (log_file && flight_log.pending()) flight_log.flush(log_file, 8); // motor is off here
     if (now - bno_at >= 1000) {
         bno_at = now;
         if (bno_ok) {

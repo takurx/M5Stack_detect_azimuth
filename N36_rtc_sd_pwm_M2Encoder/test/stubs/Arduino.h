@@ -10,6 +10,7 @@
 extern uint32_t fake_ms;
 extern uint32_t fake_pwm;
 extern uint32_t fake_bus_us;
+extern int fake_reset_reason;
 inline uint32_t millis() { return fake_ms; }
 inline uint32_t micros() { return fake_ms * 1000UL + fake_bus_us; }
 inline void pinMode(int, int) {}
