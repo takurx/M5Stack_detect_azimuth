@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-PIN = "cdd97b57c1b38dcca078f30dc8d1d1c29dec77a4"
+PIN = "73d6df16cf9bb8336d8cef991799e35eaf54aee7"
 parser = argparse.ArgumentParser()
 parser.add_argument("library", type=Path)
 args = parser.parse_args()

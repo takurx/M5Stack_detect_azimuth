@@ -36,7 +36,7 @@ static void adapter_tests() {
     CHECK(!o.valid && o.error==n36::Reason::NeedMotion && !o.degraded);
     registers(bus,120); bus.status[7]|=m2enc::NeedMotion|m2enc::Degraded; o=n36::readEncoder(encoder,0,0);
     CHECK(!o.valid && o.error==n36::Reason::NeedMotion && o.degraded);
-    registers(bus,120); bus.status[7]|=n36::kTooFastFlag|m2enc::NeedMotion; CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::TooFast);
+    registers(bus,120); bus.status[7]|=m2enc::TooFast|m2enc::NeedMotion; CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::TooFast);
     registers(bus,120); bus.status[7]|=m2enc::Probation; CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::Probation);
     registers(bus,120); bus.status[7]|=m2enc::ConfigurationError; CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::SensorConfig);
     registers(bus,120); bus.status[6]=3; CHECK(n36::readEncoder(encoder,0,0).error==n36::Reason::NotScanning);
@@ -227,7 +227,7 @@ static void world_tests() {
         for (uint32_t ms = 0; ms <= 60000; ++ms) {
             fake_ms = ms; plant.step(tracking.motorOn()); lock.observe(plant.velocity, 1);
             auto target = sun(float(121 + .003 * ms / 1000.0));
-            if (ms % 50 == 0) { registers(bus, plant.angle); if (!lock.locked) bus.status[7] |= fabs(plant.velocity) > lock.ceiling ? n36::kTooFastFlag | m2enc::NeedMotion : m2enc::NeedMotion; tracking.observe(n36::readEncoder(enc, ms, 0)); }
+            if (ms % 50 == 0) { registers(bus, plant.angle); if (!lock.locked) bus.status[7] |= fabs(plant.velocity) > lock.ceiling ? m2enc::TooFast | m2enc::NeedMotion : m2enc::NeedMotion; tracking.observe(n36::readEncoder(enc, ms, 0)); }
             tracking.tick(ms, target);
             if (tracking.motorOn() && !was_on) ++pulses; was_on = tracking.motorOn();
             CHECK(tracking.pulseLengthMs() <= 200);

@@ -9,7 +9,7 @@ itself named WIP; this copy does not establish that it is deployed or qualified.
 
 This version uses the existing public
 [M2Encoder host library](https://github.com/bakemocho/m2-absolute-encoder-i2c-host)
-at `cdd97b57c1b38dcca078f30dc8d1d1c29dec77a4` (0.2.0). The dependency is pinned,
+at `73d6df16cf9bb8336d8cef991799e35eaf54aee7` (0.2.1). The dependency is pinned,
 not vendored. It requires **protocol 1 / core 0x0E**; the old 0x07 interface is
 rejected. This sample contains no sensor decoder or sensor firmware.
 
@@ -116,10 +116,10 @@ output stays off and a later explicit arm is required.
 
 The adapter names the sensor's own states instead of folding them into a bus
 error: NOT SCANNING (stopped or unconfigured), SENSOR CONFIG, PROBATION,
-NEED MOTION, TOO FAST and SENSOR RESTART. TOO FAST is core flag 0x80 (named
-`TooFast` from M2Encoder 0.2.1; this sample checks the raw bit against the
-pinned 0.2.0 header): the sensor's edges outran its scan window, the angle is
-withheld, and the controller ends any pulse at once and waits out the gap.
+NEED MOTION, TOO FAST and SENSOR RESTART. TOO FAST is core flag 0x80
+(`m2enc::TooFast`, M2Encoder 0.2.1): the sensor's edges outran its scan window,
+the angle is withheld, and the controller ends any pulse at once and waits out
+the gap.
 Without that flag (older sensor firmware) a shaft that outruns the scan reads
 as a frozen but valid angle, which the no-motion latch would report as a jam. A detected restart re-attaches with
 `begin()` on the next read; nothing is re-armed. A NEED MOTION reading with no
@@ -204,7 +204,7 @@ watchdog or emergency-stop circuit is implemented by this sample.
 
 ```sh
 git clone https://github.com/bakemocho/m2-absolute-encoder-i2c-host.git /tmp/m2-host
-git -C /tmp/m2-host checkout cdd97b57c1b38dcca078f30dc8d1d1c29dec77a4
+git -C /tmp/m2-host checkout 73d6df16cf9bb8336d8cef991799e35eaf54aee7
 python3 N36_rtc_sd_pwm_M2Encoder/test/run_world.py /tmp/m2-host
 ```
 

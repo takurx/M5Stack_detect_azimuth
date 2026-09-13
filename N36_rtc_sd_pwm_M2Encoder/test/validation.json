@@ -1,6 +1,6 @@
 {
   "result": "PASS",
-  "library_commit": "cdd97b57c1b38dcca078f30dc8d1d1c29dec77a4",
+  "library_commit": "73d6df16cf9bb8336d8cef991799e35eaf54aee7",
   "world": {
     "world_scenarios": 14,
     "max_tracking_error_deg": 0.380005,
@@ -53,14 +53,14 @@
   "sensor_firmware_emulated": false,
   "host_compiler": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
   "source_sha256": {
-    "include/EncoderInput.h": "3e688d8d34528e1a6e1aafb06100a2bb55006b03622275f3786be7b2d1544e08",
+    "include/EncoderInput.h": "5235a0d216228a125237186234bd174dd686e089c3e7c78a168622f1ea454a9b",
     "include/FlightLog.h": "217ea4dd10a51a576e1cefc18ff45e60f780b37c42fb035460a8907ad3280e61",
     "include/ScanControl.h": "39385fd99e19a1be5f6c4a9b337c5630c5971d07931c3db19ab2d569cda5d991",
     "include/SunTable.h": "fc575d2ff50bf439c4a695babb8a51197a85004ce318d6d0e8418986f4ce97f8",
     "include/Tracking.h": "8a6fa970405c061d90520daaff5f82e9e650792daf3056cdca733218e8984559",
-    "platformio.ini": "e544d0cb845110892b760fd874dfe955f122aa6db13e0f8fc9ebf3980ad4b778",
+    "platformio.ini": "016838a9ad3396c085e470f2a0a618b72acaa282f0d784f090c2e1297c9cf02b",
     "src/main.cpp": "f3057b37c289977267dde86dd493b43810421b7bee58bfb005938bc535e0ebe2",
-    "test/run_world.py": "ae8bb0b394f79cb39783ca47467cb51d35eba28082eb86df31d4f1da073006d6",
+    "test/run_world.py": "2ff08f321f58cb303ff974f51ad243b9ddbb7cb029b911fc03080e81c69c24bc",
     "test/sketch_world.cpp": "c82663cff0429d085e08fb2a1912a2717ce628299eba72f9d8fe20ce931315f0",
     "test/stubs/Adafruit_BNO055.h": "8e3ed1e1a03dcb469d91c59e1db45211b3c48550a14433227538fe2d85795153",
     "test/stubs/Arduino.h": "e5b807dd0a42c9df8c708dac6bacf6ecfa24987c16943c01a5a6e5befa71e51a",
@@ -70,6 +70,6 @@
     "test/stubs/Wire.h": "693dfcb0c4c60a5b76a98e20bafe7050739283bdec87a9b6d0bfb12744e707e8",
     "test/stubs/esp_system.h": "5878b2c3e5cc20258320c8aab4c290c27c1825d2005c3f8c2567656f046764d7",
     "test/stubs/esp_task_wdt.h": "e658b0cef967ee094c5535f513d7df0fd5f4f11a688c2b8aee2ff6fbd061dfaf",
-    "test/world_model.cpp": "65addfca3bad032668816c4d23c2954afd5025f43951ceecda24effb2d159570"
+    "test/world_model.cpp": "7b49b3ebd256c1cdb2f35dcbe96f5b7195210e2c6e924c453f24c6f2c4dabc8a"
   }
 }
