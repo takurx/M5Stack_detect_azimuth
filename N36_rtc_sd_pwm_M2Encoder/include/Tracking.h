@@ -42,6 +42,14 @@ struct Policy {
     // Blind forward pulses allowed per arm while the sensor reports NEED MOTION and no
     // sensor fault. 0 disables them (default): the shaft never moves without a valid angle.
     uint8_t resolve_pulses = 0; uint32_t resolve_pulse_ms = 100;
+    // Hold instead of halt. A reading the sensor withholds by itself and without a sensor fault (NEED MOTION,
+    // NO ABSOLUTE, TOO FAST) keeps the tracker armed with the motor off for up to hold_ms, and tracking resumes
+    // on the next valid angle. 0 latches every stop until B, as N36 did before.
+    // Bus errors, sensor faults, restarts, probation, configuration, stall, alignment and night still halt.
+    uint32_t hold_ms = 5000;
+    // With hold_ms > 0 the resolve budget above is per loss of the angle: it refills on a valid reading.
+    // resolve_total then caps the blind pulses of one arm (0 = resolve_pulses, as without hold).
+    uint16_t resolve_total = 0;
     float deadband_deg = 0.4f, max_forward_deg = 5.0f, motion_deg = 0.5f; // motion_deg = 2.5 sensor cells of 0.2 deg
 };
 // One-way PWM, as in N34. No automatic homing, reverse, IMU fallback or restart.
@@ -50,6 +58,9 @@ class Tracking {
     Observation observation_;
     bool armed_ = false, on_ = false, gap_ = false, observed_ = false;
     uint8_t resolves_ = 0;
+    uint16_t resolve_sum_ = 0;
+    bool holding_ = false; uint32_t held_since_ = 0;
+    uint16_t resolveCap() const { return policy_.resolve_total ? policy_.resolve_total : policy_.resolve_pulses; }
     uint32_t pulse_at_ = 0, stopped_at_ = 0, last_tick_ = 0, on_ms_ = 0, pulse_len_ = 0;
     bool measure_pending_ = false;
     float anchor_ = NAN, pulse_start_deg_ = NAN, rate_ = NAN; // rate_: learned deg per ms, NAN until measured
@@ -70,7 +81,7 @@ public:
     void arm(uint32_t now) {
         if (armed_) return; // Repeated B presses must not extend PWM or clear the stall budget.
         // The next tick must validate every input before producing output.
-        armed_ = true; on_ = false; gap_ = false; on_ms_ = 0; resolves_ = 0; measure_pending_ = false;
+        armed_ = true; on_ = false; gap_ = false; on_ms_ = 0; resolves_ = 0; resolve_sum_ = 0; holding_ = false; measure_pending_ = false;
         pulse_len_ = policy_.adaptive ? policy_.min_pulse_ms : policy_.pulse_ms;
         anchor_ = NAN; last_tick_ = now; reason_ = Reason::Disarmed;
     }
@@ -82,8 +93,8 @@ public:
         if (!observed_ || !observation_.valid) {
             // Bounded blind resolve: only NEED MOTION, only without a sensor fault, only within budget.
             if (observed_ && observation_.error == Reason::NeedMotion && !observation_.degraded &&
-                resolves_ < policy_.resolve_pulses) {
-                if (on_ && now - pulse_at_ >= policy_.resolve_pulse_ms) { on_ = false; stopped_at_ = now; gap_ = true; ++resolves_; }
+                resolves_ < policy_.resolve_pulses && resolve_sum_ < resolveCap()) {
+                if (on_ && now - pulse_at_ >= policy_.resolve_pulse_ms) { on_ = false; stopped_at_ = now; gap_ = true; ++resolves_; ++resolve_sum_; }
                 else if (!on_) {
                     if (gap_ && now - stopped_at_ < policy_.gap_ms) { reason_ = Reason::Cooldown; return; }
                     on_ = true; pulse_at_ = now;
@@ -95,8 +106,15 @@ public:
             bool motion_only = observed_ && (observation_.error == Reason::NeedMotion || observation_.error == Reason::NotAbsolute || observation_.error == Reason::TooFast);
             if (motion_only && on_) { on_ = false; stopped_at_ = now; gap_ = true; measure_pending_ = true; reason_ = Reason::Cooldown; return; } // lock lost mid-pulse: stop now, settle
             if (settling && observed_ && motion_only) { reason_ = Reason::Cooldown; return; }
+            // Hold (opt-in): the sensor withholds the angle by itself and reports no fault. Stay armed, motor off, bounded.
+            if (motion_only && policy_.hold_ms && !observation_.degraded) {
+                if (!holding_) { holding_ = true; held_since_ = now; }
+                if (now - held_since_ < policy_.hold_ms) { on_ = false; reason_ = observation_.error; return; }
+            }
             halt(observation_.error, now); return;
         }
+        holding_ = false;
+        if (policy_.hold_ms) resolves_ = 0; // a valid angle ends the loss: the next one gets its own resolve budget
         if (now - observation_.at_ms >= policy_.sample_ttl_ms) { halt(Reason::Stale, now); return; }
         if (now - observation_.at_ms >= observation_.valid_for_ms) { halt(Reason::Stale, now); return; }
         if (!sun.valid || !isfinite(sun.azimuth) || !isfinite(sun.elevation) ||
@@ -142,6 +160,8 @@ public:
     }
     bool motorOn() const { return on_; }
     uint8_t resolvePulsesUsed() const { return resolves_; }
+    uint16_t resolvePulsesThisArm() const { return resolve_sum_; }
+    bool holding() const { return armed_ && holding_; }
     uint32_t pulseLengthMs() const { return pulse_len_; }
     float rateDegPerMs() const { return rate_; }
     bool armed() const { return armed_; }

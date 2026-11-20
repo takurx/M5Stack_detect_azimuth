@@ -20,7 +20,7 @@ library = args.library.resolve()
 assert subprocess.check_output(["git", "-C", str(library), "rev-parse", "HEAD"], text=True).strip() == PIN
 assert not subprocess.check_output(["git", "-C", str(library), "status", "--porcelain"], text=True).strip()
 
-def compile_run(include, output, sanitize=False, sketch=False, motor=False, scan=False):
+def compile_run(include, output, sanitize=False, sketch=False, motor=False, scan=False, hold=False):
     command = ["c++", "-std=c++11", "-Wall", "-Wextra", "-Werror", "-O1",
                "-I" + str(include), "-I" + str(ROOT / "test/stubs"), "-I" + str(library / "src"),
                str(ROOT / ("test/sketch_world.cpp" if sketch else "test/world_model.cpp")),
@@ -29,6 +29,8 @@ def compile_run(include, output, sanitize=False, sketch=False, motor=False, scan
         command += ["-DN36_ENABLE_MOTOR=1", "-DN36_ALIGNMENT_CONFIRMED=1"]
     if scan:
         command += ["-DN36_SCAN_PERIOD_US=20000", "-DN36_SCAN_SETTLE_US=2000", "-DN36_SCAN_BLANK_US=500", "-DN36_SCAN_STABLE_READS=2"]
+    if hold:
+        command += ["-DN36_HOLD_MS=5000", "-DN36_RESOLVE_PULSES=3", "-DN36_RESOLVE_TOTAL=9", "-DN36_RESOLVE_PULSE_MS=80", "-DN36_WAIT_DEG=6.0f"]
     if sanitize:
         command += ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"]
     compiled = subprocess.run(command, capture_output=True, text=True)
@@ -50,6 +52,12 @@ mutants = {
     "oversized_sun_gap_accepted": ("SunTable.h", "next_.utc - current_.utc > 300", "false"),
     "resolve_budget_unbounded": ("Tracking.h", "resolves_ < policy_.resolve_pulses", "true"),
     "resolve_ignores_sensor_fault": ("Tracking.h", "!observation_.degraded &&", ""),
+    "resolve_arm_cap_removed": ("Tracking.h", "&& resolve_sum_ < resolveCap()", ""),
+    "resolve_refill_without_hold": ("Tracking.h", "if (policy_.hold_ms) resolves_ = 0;", "resolves_ = 0;"),
+    "hold_unbounded": ("Tracking.h", "now - held_since_ < policy_.hold_ms", "true"),
+    "hold_ignores_sensor_fault": ("Tracking.h", "policy_.hold_ms && !observation_.degraded)", "policy_.hold_ms)"),
+    "hold_covers_every_error": ("Tracking.h", "if (motion_only && policy_.hold_ms", "if (policy_.hold_ms"),
+    "hold_off_by_default": ("Tracking.h", "uint32_t hold_ms = 5000;", "uint32_t hold_ms = 0;"),
     "scan_receipt_result_ignored": ("ScanControl.h", "r.command_result == m2enc::M2_OK", "true"),
     "scan_retries_forever": ("ScanControl.h", "!retried_ && e.retry()", "e.retry()"),
 }
@@ -64,9 +72,9 @@ with tempfile.TemporaryDirectory(prefix="n36-world-") as directory:
         raise RuntimeError(sanitized.stderr + sanitized.stdout)
     assert json.loads(sanitized.stdout) == metrics
     sketch_results = []
-    for motor, scan in ((False, False), (True, False), (False, True)):
-        sketch = compile_run(ROOT / "include", temporary / ("sketch-%d-%d" % (motor, scan)),
-                             sanitize=True, sketch=True, motor=motor, scan=scan)
+    for motor, scan, hold in ((False, False, False), (True, False, False), (False, True, False), (True, False, True)):
+        sketch = compile_run(ROOT / "include", temporary / ("sketch-%d-%d-%d" % (motor, scan, hold)),
+                             sanitize=True, sketch=True, motor=motor, scan=scan, hold=hold)
         if sketch.returncode:
             raise RuntimeError(sketch.stderr + sketch.stdout)
         sketch_results.append(json.loads(sketch.stdout))
