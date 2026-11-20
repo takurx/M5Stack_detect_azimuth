@@ -62,15 +62,16 @@ north/east/south/west convention of the sun data. Offset is host configuration;
 N36 reads the device's origin-adjusted Position and then applies this host
 offset. It does not write the sensor's persistent origin. Default offset zero does not
 mean alignment has been established. Then press B to arm. A or C stops; faults
-disarm, and recovery never automatically rearms.
+disarm, and recovery from a fault never automatically rearms. An angle the sensor
+withholds without a fault is held instead (see "Hold and resolve budget").
 Repeated B presses while armed do not restart a pulse or reset the no-motion budget.
 
 N36 attaches to an already configured, running sensor. Configure its fixed or
 automatic scan and qualified optical timing with the public host API before
 using this sample. N36 does not silently configure/start scanning or store
-settings. When the encoder is not absolute, align/reacquire under a separate
-supervised procedure. The sample will not energize the motor to discover an unknown
-position. Valid degraded readings remain usable and show a service indication;
+settings. When the encoder reports NEED MOTION after B, the sample gives a bounded number
+of blind forward pulses to get the first angle (10 by default; 0 disables this, and
+the shaft must then be turned under a separate supervised procedure). Valid degraded readings remain usable and show a service indication;
 probation, contradictory status, multiple candidates and invalid ranges stop.
 
 This remains one-way control, matching N34's single PWM output. It will only
@@ -124,8 +125,8 @@ Without that flag (older sensor firmware) a shaft that outruns the scan reads
 as a frozen but valid angle, which the no-motion latch would report as a jam. A detected restart re-attaches with
 `begin()` on the next read; nothing is re-armed. A NEED MOTION reading with no
 sensor fault may, when `N36_RESOLVE_PULSES` is greater than zero, receive that
-many blind forward pulses of 100 ms per arm before the controller halts; the
-default is zero, so by default the shaft never moves without a valid angle.
+many blind forward pulses before the controller halts; see "Hold and resolve
+budget" below for the defaults.
 Choose the budget from the measured shaft speed of the actual installation,
 never from a no-load bench figure.
 
@@ -142,6 +143,48 @@ id and `M2_OK`), one retry with the same id after 500 ms, then failure shown as
 SCAN FAILED. It never arms; a second B press arms once the reading is valid.
 Without a profile (the default) B on a stopped sensor does nothing, and the
 sensor must be configured and started with the host library separately.
+
+## Hold and resolve budget
+
+A sensor may withhold its angle for a while without being faulty: it needs
+motion before it can report (NEED MOTION, NO ABSOLUTE), or the shaft outran its
+scan (TOO FAST). N36 used to treat that like any other error: stop, and stay
+stopped until B. **It now holds and resumes by itself, and it may move the
+shaft forward a little to get the first angle.** The old behaviour is one flag
+away.
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `N36_HOLD_MS` | 5000 | While the angle is withheld and the sensor reports no fault, stay armed with the motor off for up to this long; a valid angle resumes tracking without B. After it the stop latches. 0 latches at once, as before |
+| `N36_RESOLVE_PULSES` | 10 | Blind forward pulses per loss of the angle while the sensor reports NEED MOTION and no fault. 0 means the shaft never moves without a valid angle, as before |
+| `N36_RESOLVE_TOTAL` | 30 | The most blind pulses one press of B may ever give |
+| `N36_RESOLVE_PULSE_MS` | 100 | Length of one blind pulse, 1 to 200 ms |
+| `N36_WAIT_DEG` | 2.0 | Overshoot ahead of the sun that is waited out instead of stopping with ALIGN MANUALLY, 0 to 30 degrees |
+
+To get exactly the earlier behaviour, build with
+`-D N36_HOLD_MS=0 -D N36_RESOLVE_PULSES=0`.
+
+Never held, with any setting: a bus error, a sensor fault (degraded or bit
+fault), a sensor restart, PROBATION, NOT SCANNING, SENSOR CONFIG, a stale
+reading, NO MOTION, ALIGN MANUALLY and NIGHT. These latch until B.
+
+Blind pulses move the shaft without a measured angle, and this drive cannot
+back up. They run only with both motor flags set and only after B. The
+defaults give one second of motor per loss: about 0.4 to 1.2 degrees at the
+shaft speeds the world model uses, inside the default `N36_WAIT_DEG`. That is
+a guess until the loaded shaft speed is measured. Then size them together:
+
+- travel per blind pulse = `N36_RESOLVE_PULSE_MS` times the loaded shaft speed
+  (the flight log gives it);
+- `N36_RESOLVE_PULSES` times that travel should cover what the sensor firmware
+  needs before it reports an angle;
+- `N36_WAIT_DEG` must be at least that total, or the first valid angle after a
+  resolve is further ahead of the sun than the controller will wait for.
+
+The world-model and sketch tests cover hold, both budgets and the first angle
+by blind pulses, and reject six mutants of them. The sensor model is a status
+flag that clears after a set travel; it is not the sensor firmware, and nothing
+here was run on hardware.
 
 ## Pulse sizing, overshoot and settling
 

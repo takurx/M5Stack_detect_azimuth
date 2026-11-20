@@ -38,9 +38,31 @@
 #ifndef N36_SCAN_INVERTED
 #define N36_SCAN_INVERTED 0
 #endif
+// Blind forward pulses while the sensor needs motion before it can report an angle. 10 x 100 ms per loss and
+// 30 per arm by default: one second of motor per loss, about 0.4 to 1.2 deg at the modelled shaft speeds,
+// inside the default N36_WAIT_DEG. 0 disables blind motion. Only with the two motor flags set, and only after B.
 #ifndef N36_RESOLVE_PULSES
-#define N36_RESOLVE_PULSES 0
+#define N36_RESOLVE_PULSES 10
 #endif
+// Hold instead of halt: 5 s by default; 0 latches every stop until B, as before. See README, "Hold and resolve budget".
+#ifndef N36_HOLD_MS
+#define N36_HOLD_MS 5000
+#endif
+#ifndef N36_RESOLVE_TOTAL
+#define N36_RESOLVE_TOTAL 30
+#endif
+#ifndef N36_RESOLVE_PULSE_MS
+#define N36_RESOLVE_PULSE_MS 100
+#endif
+// Overshoot the one-way drive may wait out. Blind resolve travel lands ahead of the sun, so size it to cover that travel.
+#ifndef N36_WAIT_DEG
+#define N36_WAIT_DEG 2.0f
+#endif
+static_assert(N36_RESOLVE_PULSE_MS >= 1 && N36_RESOLVE_PULSE_MS <= 200, "resolve pulse must be 1..200 ms");
+static_assert(N36_RESOLVE_PULSES >= 0 && N36_RESOLVE_PULSES <= 255, "resolve pulses per loss must be 0..255");
+static_assert(N36_RESOLVE_TOTAL >= 0 && N36_RESOLVE_TOTAL <= 65535, "resolve pulses per arm must be 0..65535");
+static_assert(N36_HOLD_MS >= 0 && N36_HOLD_MS <= 600000, "hold must be 0..600000 ms");
+static_assert(N36_WAIT_DEG >= 0.0f && N36_WAIT_DEG <= 30.0f, "wait must be 0..30 deg");
 // Task watchdog: if loop() stops running for this long the ESP32 panics and reboots; the reboot
 // leaves GPIO 5 unconfigured (no LEDC output) and setup() drives it LOW first. Software only.
 #ifndef N36_WDT_S
@@ -51,7 +73,10 @@ static constexpr bool motor_enabled = N36_ENABLE_MOTOR && N36_ALIGNMENT_CONFIRME
 RTC_PCF8563 rtc;
 Adafruit_BNO055 bno(55, 0x28);
 m2enc::M2Encoder encoder;
-n36::Policy policy_with_resolve() { n36::Policy p; p.resolve_pulses = N36_RESOLVE_PULSES; return p; }
+n36::Policy policy_with_resolve() {
+    n36::Policy p; p.resolve_pulses = N36_RESOLVE_PULSES; p.resolve_pulse_ms = N36_RESOLVE_PULSE_MS;
+    p.resolve_total = N36_RESOLVE_TOTAL; p.hold_ms = N36_HOLD_MS; p.wait_deg = N36_WAIT_DEG; return p;
+}
 n36::Tracking tracker(policy_with_resolve());
 static n36::ScanProfile scanProfile() {
     n36::ScanProfile p; p.period_us = N36_SCAN_PERIOD_US; p.settle_us = N36_SCAN_SETTLE_US; p.blank_us = N36_SCAN_BLANK_US;

@@ -15,9 +15,10 @@ static unsigned checks = 0;
 static void sensor(float angle) {
     sensorFrame(Wire,n36::wrap(angle));
 }
+// The tracker is rebuilt with the build's policy, as the sketch constructs it.
 static void reset() {
     fake_ms=0; fake_pwm=0; fake_bus_us=0; fake_utc=1767225600UL; fake_rtc_valid=true; fake_sd_present=true;
-    Wire=TwoWire(); M5=FakeM5(); tracker=n36::Tracking(); sun_table=n36::SunTable();
+    Wire=TwoWire(); M5=FakeM5(); tracker=n36::Tracking(policy_with_resolve()); sun_table=n36::SunTable();
     observation=n36::Observation(); target=n36::SunTarget(); sun_file=File(); log_file=File(); flight_log=n36::FlightLog<File>(); fake_log.clear(); fake_log_writes_during_pwm=0;
     rtc_ok=bno_ok=false; utc=clock_at=encoder_at=display_at=bno_at=0; line_used=0;
     fake_sd="0 2026-01-01 00:00:00 30 121\n1 2026-01-01 00:05:00 31 122\n";
@@ -71,6 +72,20 @@ int main() {
 #else
     CHECK(Wire.command_count==0 && !tracker.armed() && fake_pwm==0 && scan_starter.state()==n36::ScanStarter::Idle);
 #endif
+    // First angle: a sensor that needs motion gets bounded blind forward pulses after B, and tracking starts when the angle appears.
+    {
+        reset(); double shaft=120; unsigned blind=0;
+        auto feed=[&]{ sensor(shaft); if(shaft<120.15) Wire.status[7]|=m2enc::NeedMotion; };
+        for(fake_ms=300;fake_ms<400;++fake_ms){ feed(); loop(); }
+        CHECK(!observation.valid && observation.error==n36::Reason::NeedMotion && fake_pwm==0);
+        M5.BtnB.pressed=true;
+        for(fake_ms=400;fake_ms<12000;++fake_ms) {
+            shaft += fake_pwm ? .0008 : 0; feed(); fake_utc=1767225600UL+fake_ms/1000; loop();
+            if(fake_pwm && shaft<120.15) ++blind;
+        }
+        if(motor_enabled) CHECK(blind>0 && blind<=unsigned(N36_RESOLVE_PULSES)*unsigned(N36_RESOLVE_PULSE_MS)+10 && shaft>=120.15 && observation.valid && tracker.armed());
+        else CHECK(fake_pwm==0 && shaft==120);
+    }
     printf("{\"sketch_checks\":%u,\"motor_enabled_in_stub\":%s,\"scan_profile_in_build\":%s,\"max_pulse_ms\":%u,\"esp32_emulated\":false}\n",
            checks,motor_enabled?"true":"false",N36_SCAN_PERIOD_US>0?"true":"false",maximum);
     return 0;

@@ -17,6 +17,8 @@ static n36::Observation obs(float angle, uint32_t now) {
 static n36::SunTarget sun(float angle, float altitude = 30) {
     n36::SunTarget s; s.azimuth = angle; s.elevation = altitude; s.valid = true; return s;
 }
+// Every stop latched until B, as N36 did before hold became the default.
+static n36::Policy latched() { n36::Policy p; p.hold_ms = 0; return p; }
 static void adapter_tests() {
     TwoWire bus; m2enc::M2Encoder encoder(bus); registers(bus,120);
     CHECK(encoder.begin()==m2enc::Ok);
@@ -122,9 +124,13 @@ static void controller_tests() {
 }
 static void resolve_tests() {
     n36::Observation need; need.error = n36::Reason::NeedMotion;
-    n36::Tracking off; off.arm(0); off.observe(need); off.tick(0, sun(121));
-    CHECK(!off.motorOn() && !off.armed() && off.reason() == n36::Reason::NeedMotion); // default: no blind motion
-    n36::Policy p; p.resolve_pulses = 2; n36::Tracking t(p); t.arm(0); t.observe(need);
+    n36::Tracking off(latched()); off.arm(0); off.observe(need); off.tick(0, sun(121));
+    CHECK(!off.motorOn() && !off.armed() && off.reason() == n36::Reason::NeedMotion); // no resolve budget: no blind motion
+    n36::Tracking def; def.arm(0); def.observe(need); def.tick(0, sun(121));
+    CHECK(!def.motorOn() && def.armed() && def.holding() && def.reason() == n36::Reason::NeedMotion); // default: held, and still no blind motion
+    def.tick(4999, sun(121)); CHECK(def.armed() && !def.motorOn());
+    def.tick(5000, sun(121)); CHECK(!def.armed() && def.reason() == n36::Reason::NeedMotion); // default hold is 5 s
+    n36::Policy p = latched(); p.resolve_pulses = 2; n36::Tracking t(p); t.arm(0); t.observe(need);
     unsigned on = 0;
     for (uint32_t ms = 0; ms <= 3000; ++ms) { t.tick(ms, sun(121)); if (t.motorOn()) ++on; }
     CHECK(on == 200 && !t.armed() && t.reason() == n36::Reason::NeedMotion && t.resolvePulsesUsed() == 2); // 2 x 100 ms, then halt
@@ -136,13 +142,65 @@ static void resolve_tests() {
     resolved.observe(obs(120, 900)); resolved.tick(900, sun(121)); CHECK(resolved.motorOn() && resolved.reason() == n36::Reason::Tracking);
     resolved.arm(3000); CHECK(resolved.resolvePulsesUsed() <= 2); // budget is per arm
 }
+static void hold_tests() {
+    n36::Observation need; need.error = n36::Reason::NeedMotion;
+    n36::Observation fast; fast.error = n36::Reason::TooFast;
+    n36::Policy h; CHECK(h.hold_ms == 5000); // the default policy holds
+    // A withheld angle without a fault: armed, motor off, the sensor's reason shown; a valid angle resumes without B.
+    n36::Tracking t(h); t.arm(0); t.observe(obs(120, 0)); t.tick(0, sun(121)); CHECK(t.motorOn());
+    t.observe(fast); t.tick(10, sun(121)); CHECK(!t.motorOn() && t.armed() && t.reason() == n36::Reason::Cooldown); // mid-pulse: off at once
+    t.tick(900, sun(121)); CHECK(!t.motorOn() && t.armed() && t.holding() && t.reason() == n36::Reason::TooFast);
+    t.tick(4000, sun(121)); CHECK(!t.motorOn() && t.armed());
+    t.observe(obs(120.2f, 4100)); t.tick(4100, sun(121)); CHECK(t.armed() && !t.holding() && t.motorOn());
+    // The hold is bounded: still withheld after hold_ms, the stop latches as before.
+    n36::Tracking b(h); b.arm(0); b.observe(need); b.tick(0, sun(121)); CHECK(b.armed() && b.holding() && !b.motorOn());
+    b.tick(4999, sun(121)); CHECK(b.armed());
+    b.tick(5000, sun(121)); CHECK(!b.armed() && b.reason() == n36::Reason::NeedMotion);
+    b.observe(obs(120, 5001)); b.tick(5001, sun(121)); CHECK(!b.armed() && !b.motorOn()); // latched: B is needed
+    // Never held: a sensor fault, a bus error, probation, a restart.
+    n36::Observation bad = need; bad.degraded = true;
+    n36::Tracking f(h); f.arm(0); f.observe(bad); f.tick(0, sun(121)); CHECK(!f.armed());
+    for (n36::Reason r : {n36::Reason::BusError, n36::Reason::Probation, n36::Reason::Restarted, n36::Reason::NotScanning,
+                          n36::Reason::SensorConfig, n36::Reason::Firmware, n36::Reason::Stale}) {
+        n36::Observation o; o.error = r; n36::Tracking x(h); x.arm(0); x.observe(o); x.tick(0, sun(121)); CHECK(!x.armed() && !x.holding());
+    }
+    // Night, stall and alignment are judged on a valid angle and still latch.
+    n36::Tracking n(h); n.arm(0); n.observe(obs(120, 0)); n.tick(0, sun(121, -1)); CHECK(!n.armed() && n.reason() == n36::Reason::Night);
+    // Resolve budget per loss of the angle, capped per arm. 2 pulses per loss, 5 per arm.
+    n36::Policy p = h; p.resolve_pulses = 2; p.resolve_total = 5; p.hold_ms = 60000;
+    n36::Tracking r(p); r.arm(0); uint32_t ms = 0; unsigned on = 0;
+    auto run = [&](const n36::Observation& o, uint32_t span) { for (uint32_t e = ms + span; ms < e; ++ms) { n36::Observation c = o; c.at_ms = ms; r.observe(c); r.tick(ms, sun(121)); if (r.motorOn()) ++on; } };
+    run(need, 4000); CHECK(on == 200 && r.armed() && r.resolvePulsesUsed() == 2 && r.resolvePulsesThisArm() == 2); // one loss: 2 pulses, then hold
+    run(obs(121, 0), 10); CHECK(r.armed() && r.resolvePulsesUsed() == 0);                                         // a valid angle refills
+    on = 0; run(need, 4000); CHECK(on == 200 && r.resolvePulsesThisArm() == 4);
+    run(obs(121, 0), 10);
+    on = 0; run(need, 4000); CHECK(on == 100 && r.resolvePulsesThisArm() == 5 && r.armed());                      // the arm's cap: one pulse left
+    run(obs(121, 0), 10);
+    on = 0; run(need, 4000); CHECK(on == 0 && r.resolvePulsesThisArm() == 5);                                     // none left
+    // Without hold the budget stays per arm, and resolve_total changes nothing below it.
+    n36::Policy q = latched(); q.resolve_pulses = 2; q.resolve_total = 5;
+    n36::Tracking s(q); s.arm(0); s.observe(need); on = 0;
+    for (uint32_t k = 0; k <= 3000; ++k) { s.tick(k, sun(121)); if (s.motorOn()) ++on; }
+    CHECK(on == 200 && !s.armed() && s.resolvePulsesThisArm() == 2);
+    // Without hold a valid angle between two losses does not refill: one pulse used, one left for the whole arm.
+    n36::Tracking w(q); w.arm(0); uint32_t at = 0; unsigned won = 0;
+    auto step = [&](const n36::Observation& o, uint32_t span) { for (uint32_t e = at + span; at < e; ++at) { n36::Observation c = o; c.at_ms = at; w.observe(c); w.tick(at, sun(121)); if (w.motorOn()) ++won; } };
+    step(need, 500); CHECK(won == 100 && w.armed() && w.resolvePulsesUsed() == 1);
+    step(obs(121, 0), 600); CHECK(w.armed() && w.resolvePulsesUsed() == 1);
+    won = 0; step(need, 3000); CHECK(won == 100 && !w.armed() && w.resolvePulsesThisArm() == 2);
+}
 static void settling_tests() {
     n36::Observation need; need.error = n36::Reason::NeedMotion;
-    n36::Tracking t; t.arm(0); t.observe(obs(120, 0)); t.tick(0, sun(121)); CHECK(t.motorOn());
+    n36::Tracking t(latched()); t.arm(0); t.observe(obs(120, 0)); t.tick(0, sun(121)); CHECK(t.motorOn());
     t.observe(obs(120.3f, 20)); t.tick(20, sun(121)); CHECK(!t.motorOn());
     t.observe(need); t.tick(100, sun(121)); CHECK(t.armed() && t.reason() == n36::Reason::Cooldown); // lock lost while coasting: wait
     t.tick(819, sun(121)); CHECK(t.armed());
     t.tick(820, sun(121)); CHECK(!t.armed() && t.reason() == n36::Reason::NeedMotion);           // still lost after the gap: halt
+    // Default policy: after the gap the loss is held, not latched, and a valid angle resumes without B.
+    n36::Tracking d; d.arm(0); d.observe(obs(120, 0)); d.tick(0, sun(121)); CHECK(d.motorOn());
+    d.observe(obs(120.3f, 20)); d.tick(20, sun(121)); CHECK(!d.motorOn());
+    d.observe(need); d.tick(820, sun(121)); CHECK(d.armed() && d.holding() && !d.motorOn() && d.reason() == n36::Reason::NeedMotion);
+    d.observe(obs(120.3f, 2000)); d.tick(2000, sun(121)); CHECK(d.armed() && !d.holding() && d.motorOn());
     n36::Tracking m; m.arm(0); m.observe(obs(120, 0)); m.tick(0, sun(121)); CHECK(m.motorOn());
     m.observe(need); m.tick(10, sun(121)); CHECK(!m.motorOn() && m.armed() && m.reason() == n36::Reason::Cooldown); // lock lost mid-pulse: motor off at once
     m.observe(obs(120.4f, 900)); m.tick(900, sun(121)); CHECK(m.motorOn()); // re-locked after the gap: tracking resumes
@@ -283,4 +341,4 @@ static void world_tests() {
     printf("{\"world_scenarios\":%u,\"max_tracking_error_deg\":%.6f,\"max_pulse_ms\":%u,\"checks\":%u,\"physical_proven\":false}\n",
            scenarios, max_error, max_pulse, checks);
 }
-int main() { adapter_tests(); controller_tests(); resolve_tests(); settling_tests(); scan_tests(); table_tests(); world_tests(); return 0; }
+int main() { adapter_tests(); controller_tests(); resolve_tests(); hold_tests(); settling_tests(); scan_tests(); table_tests(); world_tests(); return 0; }
